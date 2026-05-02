@@ -16,9 +16,6 @@ node_modules/
 
 dist
 
-# Tauri mobile codegen output
-**/gen/
-
 
 # Android build artifacts
 android/build/

@@ -17,6 +17,9 @@
     "README.md"
   ],
   "scripts": {
+    "tauri:dev": "pnpm --filter tauri-app run tauri:dev",
+    "tauri:dev:ios": "pnpm --filter tauri-app run tauri:dev:ios",
+    "tauri:dev:android": "pnpm --filter tauri-app run tauri:dev:android",
     "build": "rollup -c",
     "build:all": "pnpm -r run build && pnpm run build && cargo build && cargo build --manifest-path examples/tauri-app/src-tauri/Cargo.toml",
     "build:release": "pnpm -r run build && pnpm run build && cargo build --release && cargo build --manifest-path examples/tauri-app/src-tauri/Cargo.toml --release",
