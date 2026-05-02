@@ -83,9 +83,20 @@ jobs:
       - run: pnpm install
       - run: pnpm build
 
+  check-ios:
+    name: Check iOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --target aarch64-apple-ios
+
   publish-crate:
     name: Publish to crates.io
-    needs: [fmt, clippy, test, js-build]
+    needs: [fmt, clippy, test, js-build, check-ios]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
@@ -107,7 +118,7 @@ jobs:
 
   publish-npm:
     name: Publish to npmjs
-    needs: [fmt, clippy, test, js-build]
+    needs: [fmt, clippy, test, js-build, check-ios]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
