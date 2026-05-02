@@ -8,7 +8,7 @@ The plugin moves encrypted blobs between instances of your app via Nostr relays.
 
 - State is published as [NIP-33](https://github.com/nostr-protocol/nips/blob/master/33.md) parameterized replaceable events (kind `30078`) so relays automatically retain only the latest value per category.
 - Payloads are encrypted with [NIP-44](https://github.com/nostr-protocol/nips/blob/master/44.md) before leaving the device. Plaintext never touches a relay.
-- The keypair is injected at runtime (e.g. after wallet unlock), not at init time. Publish calls made before injection are queued and flushed automatically.
+- A signing identity is injected at runtime (e.g. after wallet unlock) via the `NostrSigner` trait — the plugin never holds raw key bytes. Publish calls made before injection are queued and flushed automatically.
 - Publish is fire-and-forget. Failed deliveries are retried via a persisted outbox with exponential backoff.
 - Incoming events are delivered to your frontend via Tauri events.
 
@@ -59,16 +59,21 @@ Add the permission to your app's capability file (`src-tauri/capabilities/defaul
 
 ## Usage
 
-### Keypair injection
+### Signer injection
 
-The keypair is not provided at registration time — inject it after the user unlocks their keys (e.g. wallet unlock):
+The signing identity is not provided at registration time — inject it after the user unlocks their keys (e.g. wallet unlock). The plugin accepts any type that implements `nostr_sdk::NostrSigner` and never stores raw key bytes internally.
 
 ```rust
-// After unlock
-app.nostr_sync().set_keypair(secret_key)?;
+// Derive a dedicated sync subkey from your wallet master key.
+// Never pass the root wallet key — use BIP-32, HKDF, or equivalent.
+let sync_secret = derive_sync_key(&wallet_master_key);
+let signer = nostr_sdk::Keys::new(sync_secret);
 
-// On lock
-app.nostr_sync().clear_keypair()?;
+// After unlock
+app.nostr_sync().set_signer(signer)?;
+
+// On lock — drops the signer and zeroes key material via ZeroizeOnDrop
+app.nostr_sync().clear_signer()?;
 ```
 
 ### TypeScript API
@@ -133,8 +138,8 @@ use tauri_plugin_nostr::TauriPluginNostrExt;
 
 let sync = app.nostr_sync();
 
-sync.set_keypair(secret_key)?;
-sync.clear_keypair()?;
+sync.set_signer(signer)?;   // impl NostrSigner + Send + Sync + 'static
+sync.clear_signer()?;       // drops signer; ZeroizeOnDrop zeroes key material
 
 let status = sync.status();
 let pubkey = sync.pubkey(); // Option<PublicKey>
@@ -145,6 +150,8 @@ let relays = sync.relays(); // Vec<RelayInfo>
 ```
 
 ## Design notes
+
+**Key management** — the plugin interacts with signing through the `NostrSigner` trait and never holds a raw `SecretKey`. Three rules apply: (1) always pass a *derived* sync keypair, not the root wallet key — use BIP-32 or HKDF to produce a dedicated identity; (2) the signer implementation must be `ZeroizeOnDrop` so key bytes are cleared when `clear_signer` is called (`nostr_sdk::Keys` satisfies this); (3) do not downcast or clone the signer into unzeroized storage anywhere in the host app.
 
 **d-tag format** — events are keyed as `{namespace}/{category}/v1`. The namespace is set via `app_namespace` at registration and prefixes all d-tags, so multiple apps can share the same keypair without collision.
 

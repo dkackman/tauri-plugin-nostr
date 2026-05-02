@@ -14,7 +14,9 @@ Any Tauri app (desktop or mobile) that needs to sync named categories of state a
 
 - **Transport only** — the plugin does not own storage, schema, or conflict resolution beyond last-write-wins
 - **Encryption always on** — plaintext is never sent to a relay
-- **Identity is external** — the caller derives and provides the keypair; the plugin never derives keys itself
+- **Identity is external** — the caller derives and provides the signing identity; the plugin never derives keys itself
+- **Secret key never retained** — the plugin holds signing capability through a `NostrSigner` trait object, not raw key bytes; when cleared, the trait object is dropped immediately and key material is zeroed by the signer's `ZeroizeOnDrop` impl
+- **Derived sync key only** — callers MUST derive a Nostr-specific subkey from the wallet master key before passing it to the plugin; passing the root wallet key is explicitly prohibited
 - **Async by default** — publish is fire-and-forget with outbox retry; the caller is notified of remote changes via Tauri events
 - **Mobile and desktop** — must work on iOS, Android, macOS, Windows, Linux via Tauri 2.x
 - **No required infrastructure** — works with public relays out of the box; self-hosted relay is optional
@@ -53,22 +55,36 @@ tauri::Builder::default()
     )
 ```
 
-### Runtime Keypair Injection
+### Runtime Signer Injection
 
-The keypair is not provided at init time because it is typically derived from a wallet key after unlock. The plugin queues any publish attempts before the keypair is set and flushes them on injection.
+The signing identity is not provided at init time because it is typically derived from a wallet key after unlock. The plugin queues any publish attempts before the signer is set and flushes them on injection.
 
 ```rust
-// After wallet unlock, caller derives keypair and injects it
-app.nostr_sync().set_keypair(secret_key: SecretKey) -> Result<()>
+// After wallet unlock, caller provides a signer implementation
+app.nostr_sync().set_signer(signer: impl NostrSigner + Send + Sync + 'static) -> Result<()>
 
-// Clear keypair on wallet lock
-app.nostr_sync().clear_keypair() -> Result<()>
+// Clear signer on wallet lock — drops the trait object immediately; ZeroizeOnDrop zeroes key material
+app.nostr_sync().clear_signer() -> Result<()>
 ```
+
+`NostrSigner` is the trait from `nostr-sdk`. The simplest implementation wraps a `Keys` value:
+
+```rust
+// Derive a Nostr-specific subkey from the wallet master key — never pass the root key
+let sync_secret = derive_sync_key(&wallet_master_key);   // caller's responsibility
+let signer = nostr_sdk::Keys::new(sync_secret);
+app.nostr_sync().set_signer(signer)?;
+```
+
+**Key derivation requirement** — the sync keypair MUST be a deterministically derived child key of the wallet master key, not the root key itself. Use BIP-32, HKDF, or another scheme your app already employs. The public half of this key is the sync identity visible on relays; the private half is used solely for NIP-44 encryption and NIP-01 event signing within this plugin.
+
+**Zeroization** — `nostr_sdk::Keys` implements `ZeroizeOnDrop`. The plugin must not clone the signer or the underlying `SecretKey` into plain structs; doing so bypasses zeroing and leaves key bytes in heap memory after `clear_signer` returns.
 
 ### State Access from Rust
 
 ```rust
 app.nostr_sync().status() -> SyncStatus
+app.nostr_sync().pubkey() -> Option<PublicKey>
 app.nostr_sync().add_relay(url: &str) -> Result<()>
 app.nostr_sync().remove_relay(url: &str) -> Result<()>
 app.nostr_sync().relays() -> Vec<RelayInfo>
@@ -199,7 +215,7 @@ NostrSyncPlugin (Tauri Plugin)
   └── owns NostrSyncState as managed state
 
 NostrSyncState
-  ├── keypair: Option<SecretKey>
+  ├── signer: Option<Box<dyn NostrSigner + Send + Sync>>   // never a raw SecretKey
   ├── relay_pool: RelayPool         // nostr-sdk managed connections
   ├── outbox: OutboxQueue           // persisted retry queue
   └── namespace: String
@@ -245,12 +261,13 @@ OutboxQueue
 
 | Crate | Purpose |
 |---|---|
-| `nostr-sdk` | Relay connections, event construction, NIP-44, signing |
+| `nostr-sdk` | Relay connections, event construction, NIP-44, signing, `NostrSigner` trait |
 | `nostr` | Core Nostr types |
 | `serde` / `serde_json` | Payload serialization |
 | `tokio` | Async runtime (Tauri's) |
 | `chrono` | Timestamps |
 | `uuid` | Device ID generation |
+| `zeroize` | Memory zeroing for key material on drop |
 | `tauri` | Plugin infrastructure |
 
 No Nostr library is used in the TypeScript layer. All Nostr logic lives in Rust.
@@ -285,10 +302,10 @@ fn dtag_construction_includes_namespace_and_version() {
 
 #[test]
 fn payload_survives_encrypt_decrypt_roundtrip() {
-    let keypair = generate_test_keypair();
+    let keys = nostr_sdk::Keys::generate();   // ephemeral; never the wallet root key
     let original = json!({ "theme": "dark", "font_size": 14 });
-    let encrypted = encrypt_payload(&keypair, &original).unwrap();
-    let decrypted = decrypt_payload(&keypair, &encrypted).unwrap();
+    let encrypted = encrypt_payload(&keys, &original).unwrap();
+    let decrypted = decrypt_payload(&keys, &encrypted).unwrap();
     assert_eq!(original, decrypted);
 }
 ```
@@ -322,11 +339,9 @@ A lightweight option: the `nostr-relay` crate or a simple `tokio-tungstenite` ec
 #[tokio::test]
 async fn publish_then_fetch_returns_same_payload() {
     let relay = MockRelay::start().await;
-    let state = NostrSyncState::new(
-        vec![relay.url()],
-        "test",
-        generate_test_keypair(),
-    ).await.unwrap();
+    let keys = nostr_sdk::Keys::generate();   // ephemeral test signer
+    let state = NostrSyncState::new(vec![relay.url()], "test").await.unwrap();
+    state.set_signer(keys).await.unwrap();
 
     let payload = json!({ "theme": "dark" });
     state.publish("ui-settings", &payload).await.unwrap();
@@ -403,8 +418,11 @@ Run a local Nostr relay for the test (e.g. `strfry` or `nostream` in Docker, or 
 async fn two_instances_converge_on_latest_publish() {
     let relay = LocalRelay::start_on_random_port().await;
 
-    let instance_a = NostrSyncState::new(vec![relay.url()], "test", keypair.clone()).await?;
-    let instance_b = NostrSyncState::new(vec![relay.url()], "test", keypair.clone()).await?;
+    let keys = nostr_sdk::Keys::generate();   // shared sync identity for both instances
+    let instance_a = NostrSyncState::new(vec![relay.url()], "test").await?;
+    instance_a.set_signer(keys.clone()).await?;
+    let instance_b = NostrSyncState::new(vec![relay.url()], "test").await?;
+    instance_b.set_signer(keys).await?;
 
     instance_a.publish("ui-settings", &json!({ "theme": "dark" })).await?;
 
@@ -432,7 +450,7 @@ CI runs levels 1–3 on every PR. Level 4 runs on merge to main (requires Docker
 
 ### Additional Test Concerns
 
-**Keypair not set:** All commands that require the keypair (`publish`, `fetch`, `syncAll`) return a typed error `SyncNotReady` when called before `set_keypair`. Tests should assert this error is returned and not a panic.
+**Signer not set:** All commands that require a signing identity (`publish`, `fetch`, `syncAll`) return a typed error `SyncNotReady` when called before `set_signer`. Tests should assert this error is returned and not a panic.
 
 **Malformed relay response:** The mock relay should be capable of sending malformed events (bad JSON, wrong kind, wrong pubkey). The plugin must discard these silently without panicking.
 
@@ -475,3 +493,13 @@ The host app can surface this in settings UI to support relay whitelisting and u
 **5. Published as standalone crate**
 
 The plugin is developed and published independently of Sage as `tauri-plugin-nostr-sync` on crates.io and `tauri-plugin-nostr-sync-api` on npm. Sage is the reference consumer. The crate should include a minimal example app in `examples/` demonstrating the full lifecycle.
+
+**6. Secret key injection security**
+
+Three concerns drove the `NostrSigner` trait design instead of accepting a raw `SecretKey`:
+
+*Do not pass the root wallet key.* The plugin uses a secp256k1 keypair for NIP-44 encryption and NIP-01 signing. If the caller passes the wallet's root private key, any bug in the plugin (relay handler, outbox serialization, future IPC surface) becomes a wallet-draining vulnerability. Callers MUST derive a dedicated sync keypair from the wallet master key. The derivation is the caller's responsibility; BIP-32 child key derivation or HKDF are both acceptable. The derived public key is the sync identity visible on relays; it can safely be shown in settings UI.
+
+*The plugin must not hold raw key bytes.* `NostrSyncState` holds `Option<Box<dyn NostrSigner + Send + Sync>>`. It never stores a `SecretKey` field. This means a compromised plugin cannot trivially exfiltrate the key by reading its own state — it can only invoke signing operations, which are atomic and auditable. It also means the plugin has no key material to leak via the outbox file or log output.
+
+*Zeroize on clear.* When `clear_signer` is called, the `Box<dyn NostrSigner>` is dropped. The underlying implementation (e.g. `nostr_sdk::Keys`) MUST implement `ZeroizeOnDrop` so the key bytes are zeroed before the allocator reclaims the memory. Implementations that wrap `SecretKey` directly satisfy this if they do not clone the key into unzeroized storage. The plugin MUST NOT clone the signer or access the inner `SecretKey` through any downcast.
