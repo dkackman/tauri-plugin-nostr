@@ -1,0 +1,13 @@
+included:
+  - ios/Sources
+  - ios/Tests
+
+excluded:
+  - ios/.build
+
+opt_in_rules:
+  - empty_count
+  - force_unwrapping
+  - sorted_imports
+
+disabled_rules: []
