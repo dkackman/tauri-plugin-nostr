@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "tauri-plugin-nostr"
+    namespace = "app.tauri.plugin.nostr"
     compileSdk = 34
 
     defaultConfig {
