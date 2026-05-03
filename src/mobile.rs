@@ -4,8 +4,6 @@ use tauri::{
     AppHandle, Runtime,
 };
 
-use crate::models::*;
-
 #[cfg(target_os = "ios")]
 tauri::ios_plugin_binding!(init_plugin_tauri_plugin_nostr);
 
@@ -25,9 +23,5 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
 pub struct TauriPluginNostr<R: Runtime>(PluginHandle<R>);
 
 impl<R: Runtime> TauriPluginNostr<R> {
-    pub fn ping(&self, payload: PingRequest) -> crate::Result<PingResponse> {
-        self.0
-            .run_mobile_plugin("ping", payload)
-            .map_err(Into::into)
-    }
+    // Commands will be added in Phase 2.
 }
