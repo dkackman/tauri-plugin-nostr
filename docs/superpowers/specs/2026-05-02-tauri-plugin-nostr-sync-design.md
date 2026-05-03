@@ -36,11 +36,11 @@ Files created/modified:
 
 ---
 
-### Phase 2 — Tauri IPC + TypeScript Bindings
+### Phase 2 — Tauri IPC + TypeScript Bindings + Example App
 
-**Goal:** All 8 commands accessible from the frontend; example app can call them.
+**Goal:** All 8 commands accessible from the frontend; example app fully functional as a sync test harness.
 
-Files created/modified:
+Plugin files created/modified:
 - `build.rs` — register all commands
 - `src/commands.rs` — implement all command handlers
 - `src/desktop.rs` — expose methods used by commands
@@ -49,6 +49,80 @@ Files created/modified:
 - `guest-js/index.ts` — full TypeScript API
 
 Commands: `publish`, `fetch`, `sync_all`, `add_relay`, `remove_relay`, `get_relays`, `get_pubkey`, `get_status`
+
+Example app files created/modified:
+- `examples/tauri-app/package.json` — add `bootstrap` dependency
+- `examples/tauri-app/src/main.js` — import Bootstrap CSS/JS
+- `examples/tauri-app/src-tauri/src/lib.rs` — add `set_sync_key` and `generate_sync_key` commands
+- `examples/tauri-app/src/App.svelte` — two-column layout shell, Tauri event listeners
+- `examples/tauri-app/src/lib/IdentityCard.svelte` — nsec paste + generate key UI
+- `examples/tauri-app/src/lib/RelayCard.svelte` — relay list, add/remove
+- `examples/tauri-app/src/lib/ActionsCard.svelte` — plugin command buttons
+- `examples/tauri-app/src/lib/SettingCard.svelte` — syncable display name + accent color
+- `examples/tauri-app/src/lib/ConsoleLog.svelte` — scrollable timestamped log
+
+### Example App Layout
+
+```
+┌─────────────────────┬──────────────────────────┐
+│  Identity           │  Synced Setting           │
+│  ─────────────      │  ──────────────           │
+│  Relays             │  Display name: [______]   │
+│  ─────────────      │  Accent color: [■]        │
+│  Actions            │  [Publish]  [Fetch]        │
+│  [Publish Setting]  │                            │
+│  [Fetch Setting]    │  Console Log               │
+│  [Sync All]         │  ──────────────           │
+│  [Get Status]       │  [Clear]                  │
+│  [Get Relays]       │  12:01:03 ✓ Published...  │
+│  [Get Pubkey]       │  12:01:05 ✓ Fetched...    │
+│  [Clear Signer]     │  12:01:07 ✗ Error: ...    │
+└─────────────────────┴──────────────────────────┘
+```
+
+### Key Injection
+
+`set_signer` is a Rust-side plugin method, not a TypeScript command. The example app adds its own Tauri commands in `src-tauri/src/lib.rs`:
+
+```rust
+#[tauri::command]
+async fn set_sync_key(app: AppHandle, nsec: String) -> Result<(), String>
+
+#[tauri::command]
+async fn generate_sync_key(app: AppHandle) -> Result<KeyInfo, String>
+// KeyInfo { nsec: String, pubkey: String }
+```
+
+This keeps the plugin API clean (no raw key exposure over IPC) while allowing the test UI to accept user-provided or freshly generated keys.
+
+### Console Log Design
+
+```typescript
+type LogLevel = 'info' | 'success' | 'error' | 'event'
+
+interface LogEntry {
+  time: string      // HH:MM:SS
+  level: LogLevel
+  message: string
+}
+```
+
+| Level | Bootstrap color | Trigger |
+|---|---|---|
+| `info` | `text-secondary` | Button pressed, command invoked |
+| `success` | `text-success` | Command returned result |
+| `error` | `text-danger` | Command threw, or `nostr-sync://error` event |
+| `event` | `text-info` | Incoming Tauri event |
+
+Auto-scrolls to bottom. Max 200 entries (oldest dropped). Monospace font, dark background.
+
+### Tauri Event Listeners (registered in `App.svelte`)
+
+| Event | Action |
+|---|---|
+| `nostr-sync://updated` | Log as `event`; if `category === 'display-setting'`, update SettingCard values |
+| `nostr-sync://relay-status` | Log as `event` |
+| `nostr-sync://error` | Log as `error` |
 
 ---
 
@@ -124,9 +198,11 @@ The signer is behind `RwLock<Option<...>>` so it can be injected after wallet un
 
 ### SyncAll (Phase 2)
 
+Categories become "known" when `publish` or `fetch` is called for them — they are recorded in `known_timestamps`. `syncAll` iterates over that set; it takes no arguments.
+
 1. Check signer present → `Error::SignerNotSet` if absent
-2. For each known category in `known_timestamps` (plus any the host passes): call `fetch`
-3. For each result newer than the local cache: emit `nostr-sync://updated` (Phase 3) or return results (Phase 2)
+2. For each category key in `known_timestamps`: call `fetch`
+3. For each result newer than the local cache: update `known_timestamps`, emit `nostr-sync://updated` (Phase 3); in Phase 2 results are returned as a list
 4. Returns when all fetches complete
 
 ### Receive (Phase 3)
