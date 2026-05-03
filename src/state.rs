@@ -160,6 +160,7 @@ impl NostrSyncState {
             .unwrap_or_else(chrono::Utc::now);
 
         Ok(Some(crate::FetchResult {
+            category: category.to_string(),
             payload,
             updated_at,
             device_id,

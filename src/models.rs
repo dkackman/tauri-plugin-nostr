@@ -18,6 +18,7 @@ pub struct FetchRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FetchResult {
+    pub category: String,
     pub payload: Value,
     pub updated_at: DateTime<Utc>,
     pub device_id: String,
@@ -53,11 +54,13 @@ mod tests {
     #[test]
     fn fetch_result_serializes_camel_case() {
         let result = FetchResult {
+            category: "ui-settings".to_string(),
             payload: serde_json::json!({ "x": 1 }),
             updated_at: Utc.timestamp_opt(1_700_000_000, 0).unwrap(),
             device_id: "abc".to_string(),
         };
         let json = serde_json::to_value(&result).unwrap();
+        assert!(json.get("category").is_some(), "expected category field");
         assert!(
             json.get("updatedAt").is_some(),
             "expected camelCase updatedAt"
