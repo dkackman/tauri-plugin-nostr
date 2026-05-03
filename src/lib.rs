@@ -14,7 +14,6 @@ mod commands;
 mod error;
 mod models;
 mod state;
-pub(crate) mod outbox;
 
 pub use error::{Error, Result};
 pub use state::NostrSyncState;
@@ -22,7 +21,7 @@ pub use state::NostrSyncState;
 #[cfg(desktop)]
 use desktop::TauriPluginNostrSync;
 #[cfg(mobile)]
-use mobile::TauriPluginNostr as TauriPluginNostrSync;
+use mobile::TauriPluginNostrSync;
 
 pub trait TauriPluginNostrSyncExt<R: Runtime> {
     fn nostr_sync(&self) -> &TauriPluginNostrSync<R>;

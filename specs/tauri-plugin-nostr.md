@@ -17,7 +17,7 @@ Any Tauri app (desktop or mobile) that needs to sync named categories of state a
 - **Identity is external** — the caller derives and provides the signing identity; the plugin never derives keys itself
 - **Secret key never retained** — the plugin holds signing capability through a `NostrSigner` trait object, not raw key bytes; when cleared, the trait object is dropped immediately and key material is zeroed by the signer's `ZeroizeOnDrop` impl
 - **Derived sync key only** — callers MUST derive a Nostr-specific subkey from the wallet master key before passing it to the plugin; passing the root wallet key is explicitly prohibited
-- **Async by default** — publish is fire-and-forget with outbox retry; the caller is notified of remote changes via Tauri events
+- **Synchronous publish result** — `publish` returns a `Result` to the caller; errors (no relay accepted, signer not set, payload too large, encrypt failure) surface immediately. The caller is notified of remote changes via Tauri events.
 - **Mobile and desktop** — must work on iOS, Android, macOS, Windows, Linux via Tauri 2.x
 - **No required infrastructure** — works with public relays out of the box; self-hosted relay is optional
 
@@ -94,8 +94,7 @@ app.nostr_sync().relays() -> Vec<RelayInfo>
 
 ```rust
 pub struct SyncStatus {
-    pub ready: bool,              // keypair set and at least one relay connected
-    pub outbox_depth: usize,      // number of events pending retry
+    pub ready: bool,              // signer set and at least one relay connected
     pub relay_count: usize,
     pub connected_relay_count: usize,
 }
@@ -118,7 +117,7 @@ import { NostrSync } from 'tauri-plugin-nostr-sync-api'
 
 // Publish a replaceable event for a named category.
 // Payload is encrypted by the plugin before sending.
-// Returns immediately; delivery is handled via outbox.
+// Returns when send_event completes; rejects if no relay accepted.
 await NostrSync.publish({
   category: string,       // e.g. 'ui-settings'
   payload: unknown,       // must be JSON-serializable
@@ -126,13 +125,16 @@ await NostrSync.publish({
 
 // Fetch the latest known state for a category.
 // Queries all connected relays and returns the most recent result.
+// Always returns what's on the relay; no client-side dedup.
 await NostrSync.fetch({
   category: string,
 }): Promise<FetchResult | null>
 
-// Trigger a full pull sync across all registered categories.
-// Useful on app resume or manual "sync now" UI action.
-await NostrSync.syncAll(): Promise<void>
+// Trigger a full pull sync across the categories the host app cares about.
+// The host owns the category list; the plugin holds no schema.
+await NostrSync.syncAll({
+  categories: string[],
+}): Promise<FetchResult[]>
 
 // Relay management
 await NostrSync.addRelay({ url: string }): Promise<void>
@@ -163,7 +165,6 @@ interface RelayInfo {
 
 interface SyncStatus {
   ready: boolean
-  outbox_depth: number
   relay_count: number
   connected_relay_count: number
 }
@@ -192,7 +193,9 @@ await listen('nostr-sync://relay-status', (event: {
   }
 }) => { ... })
 
-// Fired when a publish fails after all retries are exhausted
+// Fired when an out-of-band error occurs (e.g. malformed incoming event,
+// decryption failure on a received event). Synchronous publish errors are
+// returned directly from the publish call and do NOT use this channel.
 await listen('nostr-sync://error', (event: {
   payload: {
     category: string
@@ -215,45 +218,39 @@ NostrSyncPlugin (Tauri Plugin)
   └── owns NostrSyncState as managed state
 
 NostrSyncState
-  ├── signer: Option<Box<dyn NostrSigner + Send + Sync>>   // never a raw SecretKey
-  ├── relay_pool: RelayPool         // nostr-sdk managed connections
-  ├── outbox: OutboxQueue           // persisted retry queue
-  └── namespace: String
+  ├── client: nostr_sdk::Client   // owns relay pool AND signer slot
+  ├── namespace: String
+  └── device_id: String           // ephemeral, regenerated each process
 
-OutboxQueue
-  ├── persisted to app data dir as JSONL
-  ├── retries with exponential backoff (1s, 2s, 4s... max 5min)
-  └── flushed on: keypair set, relay reconnect, app startup
+(Signer is held inside Client via Client::set_signer/unset_signer/signer.
+ The plugin does not maintain a parallel signer field.)
 ```
+
+The plugin relies on `nostr_sdk::Client` for relay pool management, signer storage, automatic reconnect (with exponential backoff via `RelayOptions::retry_interval` / `adjust_retry_interval`), and event delivery via `Client::notifications()`. The plugin adds: namespace + d-tag contract, NIP-44 encrypt/decrypt to self, payload size limit, and Tauri event bridging.
 
 ### Publish Flow
 
 1. Caller invokes `publish({ category, payload })`
-2. Plugin serializes payload to JSON
-3. Plugin encrypts with NIP-44 using sync keypair
-4. Plugin constructs NIP-33 event with d-tag `{namespace}/{category}/v1`
-5. Plugin signs event
-6. Plugin attempts publish to all connected relays simultaneously
-7. On success: done
-8. On any relay failure: event added to outbox with timestamp
-9. Returns to caller immediately regardless of relay outcome
+2. Plugin retrieves the signer from the client → `Error::SignerNotSet` if absent
+3. Plugin serializes payload to JSON; rejects if > 64KB (`Error::PayloadTooLarge`)
+4. Plugin NIP-44-encrypts the JSON to its own pubkey
+5. Plugin constructs NIP-33 event with d-tag `{namespace}/{category}/v1` and a `device_id` tag
+6. Plugin signs the event via the signer
+7. Plugin calls `client.send_event(event)`; the SDK broadcasts to all WRITE relays
+8. If `Output.success` is non-empty (at least one relay accepted) → return `Ok(())`
+9. If zero relays accepted → return `Err`; the caller decides what to do
 
-### Receive Flow
+There is no plugin-managed retry queue. Transient relay drops are handled by `nostr-sdk`'s built-in reconnect. Durable "publish-while-offline" is a host-app concern; the plugin surfaces failures synchronously so the host can re-call `publish` at its discretion.
 
-1. On startup and relay connect: plugin subscribes to all kind `30078` events for own pubkey
-2. On event received: decrypt with NIP-44
-3. Compare `created_at` with locally known latest for that category
-4. If newer: emit `nostr-sync://updated` event to frontend with decrypted payload
+### Receive Flow (Phase 3)
+
+1. On startup and relay connect: plugin subscribes to kind `30078` events authored by own pubkey, filtered to the configured namespace
+2. On event received via `Client::notifications()`: NIP-44 decrypt
+3. Compare `created_at` with the in-memory last-seen timestamp for that category
+4. If newer: update the in-memory timestamp, emit `nostr-sync://updated` to the frontend with the decrypted payload
 5. If older or equal: discard
 
-### Outbox Retry
-
-- Queue is a persisted JSONL file in app data directory
-- Each entry: `{ category, encrypted_event, attempts, last_attempt_at }`
-- Retry loop runs on: startup, keypair injection, relay reconnect
-- Backoff: `min(2^attempts seconds, 300s)`
-- Entry removed on successful delivery to at least one relay
-- Entry abandoned (logged, event emitted) after 10 attempts
+The last-seen timestamp cache is in-memory only; it does not persist across restarts. After a restart, the first event received per category will always emit `nostr-sync://updated`, which is the correct behavior for "sync on app resume".
 
 ---
 
@@ -261,14 +258,14 @@ OutboxQueue
 
 | Crate | Purpose |
 |---|---|
-| `nostr-sdk` | Relay connections, event construction, NIP-44, signing, `NostrSigner` trait |
-| `nostr` | Core Nostr types |
+| `nostr-sdk` | Relay connections (with built-in auto-reconnect), event construction, NIP-44, signing, `NostrSigner` trait, signer storage |
 | `serde` / `serde_json` | Payload serialization |
 | `tokio` | Async runtime (Tauri's) |
-| `chrono` | Timestamps |
-| `uuid` | Device ID generation |
-| `zeroize` | Memory zeroing for key material on drop |
+| `chrono` | Timestamps in IPC models |
+| `uuid` | Ephemeral device ID generation |
 | `tauri` | Plugin infrastructure |
+
+`nostr-sdk` re-exports the core `nostr` types (`Event`, `Keys`, `Timestamp`, etc.); a direct dependency on `nostr` is not needed. `zeroize` is also not a direct dependency — `ZeroizeOnDrop` lives on `nostr_sdk::Keys` and fires automatically when the `Arc<dyn NostrSigner>` inside `Client` is dropped.
 
 No Nostr library is used in the TypeScript layer. All Nostr logic lives in Rust.
 
@@ -287,10 +284,8 @@ Pure logic tests with no I/O. Fast, no network, no Tauri runtime.
 - d-tag construction: `build_dtag("sage", "ui-settings")` → `"sage/ui-settings/v1"`
 - Namespace sanitization: reject empty strings, slashes, special chars
 - Payload round-trip: serialize → encrypt → decrypt → deserialize produces original value
-- Outbox entry serialization/deserialization round-trip
-- Backoff calculation: verify `2^n` capped at 300s for attempts 0–10
-- `updated_at` comparison: newer wins, equal discards, older discards
-- `SyncStatus` ready flag: false when no keypair, false when no relay connected, true when both
+- Payload size: at-limit (64KB) accepted, over-limit rejected
+- `SyncStatus` ready flag: false when no signer, false when no relay connected, true when both
 
 **Tooling:** Standard `#[cfg(test)]` Rust unit tests. No special setup.
 
@@ -324,12 +319,11 @@ A lightweight option: the `nostr-relay` crate or a simple `tokio-tungstenite` ec
 
 - `publish()` sends an encrypted event to the relay
 - Received event is decryptable with the same keypair
-- Received event with older `created_at` is discarded
+- Received event with older `created_at` is discarded by the receive subscription
 - Received event with newer `created_at` fires the update callback
 - Two sequential publishes to the same category: relay retains only the latest (NIP-33 behavior)
-- `syncAll()` fetches latest events for all known categories on connect
-- Outbox: publish while relay is down → event queued → relay comes back → event delivered
-- Outbox: after 10 failed attempts → error callback fired → entry removed from queue
+- `syncAll(categories)` fetches latest events for the supplied list and returns them
+- Publish with all relays unreachable → returns `Err`; the caller can retry at its discretion
 - Multi-relay: publish succeeds if at least one of three relays accepts
 - Multi-relay: subscribe receives event published to any relay in the pool
 
@@ -357,9 +351,9 @@ async fn older_remote_event_is_discarded() {
 }
 
 #[tokio::test]
-async fn outbox_retries_after_relay_reconnect() {
-    // publish while relay down, assert queued
-    // bring relay up, assert delivered and queue empty
+async fn publish_with_all_relays_down_returns_err() {
+    // start state with one relay url, do not start the relay
+    // call publish, assert Err is returned synchronously
 }
 ```
 
@@ -440,7 +434,7 @@ async fn two_instances_converge_on_latest_publish() {
 | Level | Speed | Network | Tauri Runtime | What it catches |
 |---|---|---|---|---|
 | 1 — Unit | Very fast | None | No | Logic bugs, encoding errors |
-| 2 — Integration | Fast | Mock relay | No | Relay protocol, outbox, multi-relay |
+| 2 — Integration | Fast | Mock relay | No | Relay protocol, multi-relay, error surface |
 | 3 — Tauri commands | Medium | Mock relay | Yes (Mock) | IPC surface, command wiring |
 | 4 — E2E | Slow | Local relay | No | Real convergence, timing, relay behavior |
 
@@ -464,9 +458,15 @@ CI runs levels 1–3 on every PR. Level 4 runs on merge to main (requires Docker
 
 ## Resolved Design Decisions
 
-**1. Outbox queue encryption at rest**
+**1. No durable outbox**
 
-The outbox queue stores already-encrypted Nostr events (NIP-44 ciphertext). This is sufficient — the queue file contains no plaintext payload. No additional encryption layer is applied to the queue file itself, keeping the implementation simpler. The queue file should be written to the app's private data directory where OS-level permissions provide ambient protection.
+The plugin does not maintain a persisted retry queue. Three reasons:
+
+*nostr-sdk already auto-reconnects.* `RelayOptions` defaults to `reconnect=true`, `retry_interval=10s`, `adjust_retry_interval=true`. Transient relay drops within a session are handled without plugin involvement.
+
+*The error is observable on the spot.* `Client::send_event` returns `Output<EventId>` with `success` and `failed` sets. The plugin's `publish` returns `Err` when zero relays accepted; the caller decides whether to retry, surface a UI error, or queue at the application layer.
+
+*Durable cross-restart publish is a host concern.* If the host app needs "publish-while-offline → retransmit on next launch", it can layer that on top of `publish` using its own persistence — keeping the plugin transport-only and small. The plugin can later add an `Outbox` trait if a clear shared use case emerges.
 
 **2. Payload size limit**
 
@@ -474,7 +474,7 @@ Hard limit of 64KB per event (the most conservative common relay cap). This is a
 
 **3. Startup sync**
 
-`syncAll()` is not called automatically. The host app calls it explicitly, typically after wallet unlock and keypair injection. This keeps the plugin decoupled from the wallet lifecycle and avoids sync attempts before the keypair is available.
+`syncAll(categories)` is not called automatically. The host app calls it explicitly, typically after wallet unlock and signer injection, and supplies the list of categories it cares about. This keeps the plugin decoupled from both the wallet lifecycle and the host app's schema — the plugin holds no list of "known categories", which keeps state from drifting between sessions.
 
 **4. Sync pubkey exposure**
 
@@ -498,8 +498,8 @@ The plugin is developed and published independently of Sage as `tauri-plugin-nos
 
 Three concerns drove the `NostrSigner` trait design instead of accepting a raw `SecretKey`:
 
-*Do not pass the root wallet key.* The plugin uses a secp256k1 keypair for NIP-44 encryption and NIP-01 signing. If the caller passes the wallet's root private key, any bug in the plugin (relay handler, outbox serialization, future IPC surface) becomes a wallet-draining vulnerability. Callers MUST derive a dedicated sync keypair from the wallet master key. The derivation is the caller's responsibility; BIP-32 child key derivation or HKDF are both acceptable. The derived public key is the sync identity visible on relays; it can safely be shown in settings UI.
+*Do not pass the root wallet key.* The plugin uses a secp256k1 keypair for NIP-44 encryption and NIP-01 signing. If the caller passes the wallet's root private key, any bug in the plugin (relay handler, future IPC surface) becomes a wallet-draining vulnerability. Callers MUST derive a dedicated sync keypair from the wallet master key. The derivation is the caller's responsibility; BIP-32 child key derivation or HKDF are both acceptable. The derived public key is the sync identity visible on relays; it can safely be shown in settings UI.
 
-*The plugin must not hold raw key bytes.* `NostrSyncState` holds `Option<Box<dyn NostrSigner + Send + Sync>>`. It never stores a `SecretKey` field. This means a compromised plugin cannot trivially exfiltrate the key by reading its own state — it can only invoke signing operations, which are atomic and auditable. It also means the plugin has no key material to leak via the outbox file or log output.
+*The plugin does not hold raw key bytes itself.* The signer lives inside `nostr_sdk::Client` (set via `Client::set_signer`), accessed as `Arc<dyn NostrSigner>`. The plugin never stores a `SecretKey` field of its own. A compromised plugin cannot trivially exfiltrate the key — it can only invoke signing operations, which are atomic and auditable.
 
-*Zeroize on clear.* When `clear_signer` is called, the `Box<dyn NostrSigner>` is dropped. The underlying implementation (e.g. `nostr_sdk::Keys`) MUST implement `ZeroizeOnDrop` so the key bytes are zeroed before the allocator reclaims the memory. Implementations that wrap `SecretKey` directly satisfy this if they do not clone the key into unzeroized storage. The plugin MUST NOT clone the signer or access the inner `SecretKey` through any downcast.
+*Zeroize on clear.* When `clear_signer` is called, the plugin invokes `Client::unset_signer`. The `Arc<dyn NostrSigner>` inside the client drops; the underlying implementation (e.g. `nostr_sdk::Keys`) implements `ZeroizeOnDrop` so the key bytes are zeroed before the allocator reclaims the memory. Implementations that wrap `SecretKey` directly satisfy this if they do not clone the key into unzeroized storage. The plugin MUST NOT clone the signer or access the inner `SecretKey` through any downcast.

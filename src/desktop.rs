@@ -18,10 +18,7 @@ pub struct TauriPluginNostrSync<R: Runtime> {
 }
 
 impl<R: Runtime> TauriPluginNostrSync<R> {
-    pub async fn set_signer(
-        &self,
-        signer: impl nostr_sdk::NostrSigner + 'static,
-    ) -> Result<()> {
+    pub async fn set_signer(&self, signer: impl nostr_sdk::NostrSigner + 'static) -> Result<()> {
         self.pub_state.set_signer(signer).await
     }
 

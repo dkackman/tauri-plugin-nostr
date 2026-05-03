@@ -2195,19 +2195,19 @@
         {
           "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`",
           "type": "string",
-          "const": "nostr:default",
+          "const": "nostr-sync:default",
           "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`"
         },
         {
           "description": "Enables the ping command without any pre-configured scope.",
           "type": "string",
-          "const": "nostr:allow-ping",
+          "const": "nostr-sync:allow-ping",
           "markdownDescription": "Enables the ping command without any pre-configured scope."
         },
         {
           "description": "Denies the ping command without any pre-configured scope.",
           "type": "string",
-          "const": "nostr:deny-ping",
+          "const": "nostr-sync:deny-ping",
           "markdownDescription": "Denies the ping command without any pre-configured scope."
         }
       ]

@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 
 async function ping(value) {
-    return await invoke("plugin:tauri-plugin-nostr|ping", {
+    return await invoke("plugin:tauri-plugin-nostr-sync|ping", {
         payload: {
             value,
         },

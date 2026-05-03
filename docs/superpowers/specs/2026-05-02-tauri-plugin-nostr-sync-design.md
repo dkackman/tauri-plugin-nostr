@@ -13,13 +13,15 @@ The canonical spec is `specs/tauri-plugin-nostr.md`. This design document covers
 - **Phased approach** — three phases, each independently testable and mergeable
 - **Desktop-first** — mobile.rs remains a stub; mobile implementation is a future phase
 - **Rename now** — plugin renamed from `tauri-plugin-nostr` to `tauri-plugin-nostr-sync` in Phase 1 (affects Cargo.toml, build.rs, lib.rs IPC prefix, TypeScript invoke calls)
-- **State-first (Option A)** — Phase 1 builds and tests `NostrSyncState` in pure Rust with no Tauri IPC; Phase 2 wires IPC; Phase 3 adds outbox and events
+- **State-first (Option A)** — Phase 1 builds and tests `NostrSyncState` in pure Rust with no Tauri IPC; Phase 2 wires IPC; Phase 3 adds receive subscription + Tauri events
+- **No durable outbox** — `publish` returns `Result` synchronously. Transient relay drops are handled by `nostr-sdk`'s built-in auto-reconnect. Durable cross-restart publish is a host-app concern.
+- **Lean on `nostr_sdk::Client`** — the Client owns the signer slot (`set_signer`/`signer`/`unset_signer`) and the relay pool. The plugin holds no parallel signer field and no parallel relay map.
 
 ---
 
 ## Phase Breakdown
 
-### Phase 1 — Core State Machine (pure Rust, no Tauri IPC)
+### Phase 1 — Core State Machine (pure Rust, no Tauri IPC) — COMPLETE
 
 **Goal:** `NostrSyncState` is correct, tested, and has no Tauri dependencies beyond what the plugin infrastructure requires.
 
@@ -32,7 +34,9 @@ Files created/modified:
 - `src/state.rs` — NEW: `NostrSyncState` implementation
 - `src/desktop.rs` — thin wrapper delegating to `NostrSyncState`
 
-**Phase 1 does NOT include:** Tauri commands, TypeScript bindings, outbox, events, relay subscriptions for receive flow.
+**Phase 1 does NOT include:** Tauri commands, TypeScript bindings, events, relay subscriptions for receive flow.
+
+**Post-implementation simplifications applied:** the parallel `signer: RwLock<Option<Arc<dyn NostrSigner>>>` field, the manual `connect_relay` after `add_relay`, the `known_timestamps` cache check inside `fetch`, and the `outbox.rs` stub were all removed once the design surfaced as duplicating nostr-sdk capabilities. The `is_newer` helper and its unit tests went with the cache check; Phase 3 will reintroduce equivalent dedup logic at the receive subscription layer where it belongs.
 
 ---
 
@@ -126,17 +130,33 @@ Auto-scrolls to bottom. Max 200 entries (oldest dropped). Monospace font, dark b
 
 ---
 
-### Phase 3 — Outbox, Events, Integration Tests
+### Phase 3 — Receive Subscription, Events, Integration Tests
 
-**Goal:** Reliable delivery with retry; frontend receives real-time updates.
+**Goal:** Frontend receives real-time updates from remote devices; integration coverage on a mock relay; E2E coverage on a local relay.
 
 Files created/modified:
-- `src/outbox.rs` — NEW: `OutboxQueue` (persisted JSONL, exponential backoff, 10-attempt limit)
-- `src/state.rs` — integrate outbox into publish flow; add receive subscription loop; emit Tauri events
-- `tests/` — Level 2 integration tests with mock relay
+- `src/state.rs` — add receive subscription task driven by `Client::notifications()`; add receive-side dedup (see decision below); emit Tauri events via the AppHandle
+- `src/desktop.rs` — wire the AppHandle to the state so events can be emitted
+- `tests/` — Level 2 integration tests with mock relay (publish/receive, multi-relay, all-relays-down)
 - `tests/e2e/` — Level 4 E2E tests (gated with `#[ignore = "requires local relay"]`)
 
 Events emitted: `nostr-sync://updated`, `nostr-sync://relay-status`, `nostr-sync://error`
+
+#### Decision to make before implementing: dedup mechanism
+
+`nostr-sdk` ships a `NostrDatabase` trait. `Client::builder().database(MemoryDatabase::default())` (or the sqlite-backed `NostrLMDB` / `NdbDatabase` from sibling crates) attaches a store that already:
+
+- Dedupes events by id.
+- Honours NIP-33 replaceable-event semantics — only the latest `(pubkey, kind, d-tag)` is retained.
+- Is queryable via `client.database().query(filter)`.
+
+Two options for Phase 3:
+
+**Option A — Hand-rolled `last_seen: RwLock<HashMap<String, Timestamp>>`.** Simpler to reason about; one HashMap of `category → Timestamp`. In-memory only; resets each launch (which is correct behavior for "emit `updated` on app resume"). Roughly 30 lines of code.
+
+**Option B — Wire `MemoryDatabase` into the client.** Get dedup, replaceable-event semantics, and filter queries for free. Receive handler becomes: on event arrival, check whether the database already has it (it will in the second-delivery case across multiple relays); if not, emit `updated`. Slightly more code in setup, less in the dedup path. Also opens the door to swapping in the sqlite backend later for cross-restart dedup if a use case emerges.
+
+**Recommendation:** Option A is consistent with "transport only — no persistence" and fits the current scope. Pick Option B only if a Phase 4 requirement appears (e.g., "don't re-emit `updated` for events seen in a previous session"). Don't pre-emptively reach for the database — the HashMap is honest about what we actually need today.
 
 ---
 
@@ -150,8 +170,7 @@ src/
   commands.rs     # Tauri IPC command handlers (thin — delegate to state)
   desktop.rs      # TauriPluginNostrSync<R> struct, wraps NostrSyncState
   mobile.rs       # stub (returns PluginInvokeError)
-  state.rs        # NostrSyncState — core logic (Phase 1)
-  outbox.rs       # OutboxQueue — retry queue (Phase 3; backoff fn defined in Phase 1)
+  state.rs        # NostrSyncState — core logic
   models.rs       # Serde types for IPC
   error.rs        # Error enum
 guest-js/index.ts # TypeScript bindings (Phase 2)
@@ -160,18 +179,20 @@ guest-js/index.ts # TypeScript bindings (Phase 2)
 ### `NostrSyncState` (core struct, `src/state.rs`)
 
 ```rust
+// Phase 1 (current)
 pub struct NostrSyncState {
     namespace: String,
-    device_id: String,                                              // uuid v4, ephemeral
-    client: nostr_sdk::Client,                                      // relay pool + subscriptions
-    signer: RwLock<Option<Arc<dyn NostrSigner + Send + Sync>>>,    // swappable at runtime
-    known_timestamps: RwLock<HashMap<String, Timestamp>>,           // category → last seen
+    device_id: String,             // uuid v4, ephemeral (per-process)
+    client: nostr_sdk::Client,     // owns relay pool AND signer slot
 }
+
+// Phase 3 adds
+//   last_seen: RwLock<HashMap<String, Timestamp>>  // category → last seen, in-memory only
 ```
 
-`nostr_sdk::Client` owns relay connections — no raw WebSocket management in this plugin.
+`nostr_sdk::Client` owns relay connections AND the signer. The plugin calls `Client::set_signer` / `Client::unset_signer` / `Client::signer` directly; there is no parallel signer field. This means the signer is swappable at runtime without reconstructing the client, and `ZeroizeOnDrop` on the underlying `Keys` fires when the last `Arc` reference inside the client drops.
 
-The signer is behind `RwLock<Option<...>>` so it can be injected after wallet unlock without reconstructing the client.
+The client is built with `Options::default().autoconnect(true)`, so `add_relay` automatically opens the connection. `nostr-sdk` then handles reconnection on its own (`reconnect=true`, `retry_interval=10s`, `adjust_retry_interval=true` per `RelayOptions` defaults).
 
 ---
 
@@ -179,48 +200,48 @@ The signer is behind `RwLock<Option<...>>` so it can be injected after wallet un
 
 ### Publish
 
-1. Check signer present → `Error::SignerNotSet` if absent
-2. Serialize payload to JSON string
-3. Check size ≤ 64KB → `Error::PayloadTooLarge` if exceeded
-4. NIP-44 encrypt with signer's public key
-5. Build NIP-33 event: kind `30078`, d-tag `{namespace}/{category}/v1`, content = ciphertext
-6. Sign + broadcast via `client.send_event(event)`
-7. Return immediately (Phase 1: fire-and-forget; Phase 3: outbox on failure)
+1. Get signer via `client.signer().await` → `Error::SignerNotSet` if absent
+2. Serialize payload to JSON string; check size ≤ 64KB → `Error::PayloadTooLarge` if exceeded
+3. NIP-44 encrypt with signer's own public key
+4. Build NIP-33 event: kind `30078`, d-tag `{namespace}/{category}/v1`, `device_id` tag, content = ciphertext
+5. Sign via the signer's `sign_event`
+6. Broadcast via `client.send_event(event)`
+7. If `Output.success` non-empty → `Ok(())`; if zero relays accepted → `Err`. Caller decides whether to retry.
 
 ### Fetch
 
-1. Check signer present → `Error::SignerNotSet` if absent
+1. Get signer via `client.signer().await` → `Error::SignerNotSet` if absent
 2. Build filter: kind `30078`, author = own pubkey, `#d` = d-tag for category
-3. `client.get_events_of(filter, timeout)` → list of events
-4. Take event with latest `created_at`
-5. NIP-44 decrypt content
-6. Deserialize JSON → return `FetchResult { payload, updated_at, device_id }`
+3. `client.fetch_events(vec![filter], timeout)` → list of events (NIP-33 means at most one per relay)
+4. Take the first event from the result; if none, return `Ok(None)`
+5. NIP-44 decrypt content; pull `device_id` from event tags (fallback to author hex)
+6. Return `FetchResult { payload, updated_at, device_id }`
+
+`fetch` always returns what's on the relay. There is no client-side dedup against a cache — that responsibility lives in the receive subscription path (Phase 3) where it actually matters.
 
 ### SyncAll (Phase 2)
 
-Categories become "known" when `publish` or `fetch` is called for them — they are recorded in `known_timestamps`. `syncAll` iterates over that set; it takes no arguments.
+The host app passes the category list; the plugin holds no schema.
 
-1. Check signer present → `Error::SignerNotSet` if absent
-2. For each category key in `known_timestamps`: call `fetch`
-3. For each result newer than the local cache: update `known_timestamps`, emit `nostr-sync://updated` (Phase 3); in Phase 2 results are returned as a list
+```rust
+pub async fn sync_all(&self, categories: &[String]) -> Result<Vec<FetchResult>>
+```
+
+1. Get signer → `Error::SignerNotSet` if absent
+2. For each category in `categories`: call `fetch`
+3. Collect non-None results into a `Vec<FetchResult>`
 4. Returns when all fetches complete
 
 ### Receive (Phase 3)
 
-1. On relay connect: subscribe to all kind `30078` events for own pubkey
-2. On event received: NIP-44 decrypt
-3. Compare `created_at` with `known_timestamps[category]`
-4. If newer: update cache, emit `nostr-sync://updated` to frontend
-5. If older or equal: discard
+1. On signer set + relay connect: subscribe to kind `30078` events for own pubkey, filtered to the namespace
+2. Drive `client.notifications()` from a background task
+3. On event received: NIP-44 decrypt, parse the d-tag to recover the category
+4. Compare `created_at` with `last_seen[category]` (in-memory only)
+5. If newer: update `last_seen`, emit `nostr-sync://updated` to frontend
+6. If older or equal: discard
 
-### Outbox Retry (Phase 3)
-
-- JSONL file in app data directory
-- Each entry: `{ category, encrypted_event, attempts, last_attempt_at }`
-- Retry loop triggers on: startup, keypair injection, relay reconnect
-- Backoff: `min(2^attempts seconds, 300s)`
-- Remove entry on delivery to at least one relay
-- Abandon after 10 attempts: emit `nostr-sync://error`, remove entry
+The cache is intentionally not persisted: after restart, the first event per category emits an `updated` event, which is what the host app wants for "sync on resume".
 
 ---
 
@@ -246,34 +267,33 @@ pub enum Error {
 
 | Crate | Purpose |
 |---|---|
-| `nostr-sdk` | Relay client, NIP-44, NIP-01, `NostrSigner` trait |
-| `nostr` | Core Nostr types (`Event`, `Keys`, `Timestamp`, etc.) |
+| `nostr-sdk` | Relay client (with built-in auto-reconnect), NIP-44, NIP-01, `NostrSigner` trait, signer storage. Re-exports `nostr` core types. |
 | `serde_json` | Payload serialization |
 | `tokio` | Async (Tauri's runtime) |
 | `chrono` | Timestamps in IPC models |
-| `uuid` | Device ID generation |
-| `zeroize` | Explicit zeroize calls if needed beyond ZeroizeOnDrop |
+| `uuid` | Ephemeral device ID generation |
+
+`nostr` is not a direct dependency — `nostr-sdk` re-exports the core types. `zeroize` is not a direct dependency — `ZeroizeOnDrop` is implemented on `nostr_sdk::Keys` and fires when the `Arc<dyn NostrSigner>` inside `Client` drops.
 
 ---
 
 ## Testing Strategy
 
-### Phase 1 — Level 1 Unit Tests (in `src/state.rs` and `src/outbox.rs`)
+### Phase 1 — Level 1 Unit Tests (in `src/state.rs`)
 
-All pure logic, no I/O, no network.
+All pure logic, no I/O, no network. Final shape (9 tests):
 
 | Test | Assertion |
 |---|---|
-| `dtag_format` | `build_dtag("sage", "ui-settings")` → `"sage/ui-settings/v1"` |
+| `dtag_format_includes_namespace_category_and_version` | `build_dtag("sage", "ui-settings")` → `"sage/ui-settings/v1"` |
+| `dtag_works_with_various_inputs` | dtag works across multiple namespace/category combinations |
 | `namespace_rejects_slash` | namespace containing `/` → `InvalidNamespace` |
-| `namespace_rejects_empty` | empty namespace → `InvalidNamespace` |
+| `namespace_rejects_empty_string` | empty namespace → `InvalidNamespace` |
+| `namespace_accepts_valid_identifier` | non-empty, no-slash namespaces are accepted |
 | `payload_encrypt_decrypt_roundtrip` | encrypt → decrypt with same ephemeral key → original value |
-| `payload_too_large` | 65KB payload → `PayloadTooLarge` |
-| `payload_at_limit` | exactly 64KB → no error |
-| `backoff_calculation` | attempts 0–10 → `min(2^n, 300)` seconds |
-| `sync_status_not_ready_no_signer` | `SyncStatus.ready == false` when signer absent |
-| `timestamp_newer_wins` | newer `created_at` updates cache |
-| `timestamp_older_discarded` | older `created_at` leaves cache unchanged |
+| `payload_at_limit_is_accepted` | exactly 64KB → no error |
+| `payload_over_limit_is_rejected` | 65KB → `PayloadTooLarge` |
+| `sync_status_not_ready_without_signer` | `SyncStatus.ready == false` when signer absent |
 
 ### Phase 2 — Level 3 Tauri Command Tests
 
@@ -281,7 +301,7 @@ Using `tauri::test` with `MockRuntime`. Validates IPC surface: command names, ar
 
 ### Phase 3 — Level 2 Integration + Level 4 E2E
 
-Level 2: in-process mock relay via `tokio-tungstenite`. Tests publish/receive flow, outbox retry, multi-relay behavior.
+Level 2: in-process mock relay via `tokio-tungstenite`. Tests publish/receive flow, multi-relay behavior, all-relays-down → `Err`.
 
 Level 4: local relay (Docker), two `NostrSyncState` instances. Gated with `#[ignore = "requires local relay"]`. Runs on merge to main.
 
@@ -289,9 +309,10 @@ Level 4: local relay (Docker), two `NostrSyncState` instances. Gated with `#[ign
 
 ## Constraints Carried Forward from Spec
 
-- Signer is never a raw `SecretKey` — held as `Arc<dyn NostrSigner + Send + Sync>` (Arc needed for shared ownership with `nostr_sdk::Client`); never cloned into plain structs
-- `clear_signer()` replaces the `Arc` with `None`; when the last `Arc` ref drops, `ZeroizeOnDrop` on the underlying impl zeroes key bytes
-- Outbox stores encrypted ciphertext only — never plaintext
-- `syncAll()` is never called automatically — host app calls it explicitly after keypair injection
-- d-tag format is fixed: `{namespace}/{category}/v1`
-- 64KB limit is global and not user-configurable
+- Signer is never a raw `SecretKey` — stored inside `nostr_sdk::Client` as `Arc<dyn NostrSigner>`. Never cloned into plain structs.
+- `clear_signer()` calls `Client::unset_signer`; when the last `Arc` reference drops, `ZeroizeOnDrop` on the underlying impl zeroes key bytes.
+- `publish` returns a synchronous `Result`; transient failures are visible to the caller, not buffered in a plugin-managed queue.
+- `syncAll(categories)` is never called automatically — the host app calls it explicitly with a category list after signer injection.
+- d-tag format is fixed: `{namespace}/{category}/v1`.
+- 64KB payload limit is global and not user-configurable.
+- `device_id` is ephemeral (regenerated each process). The host app should not assume it identifies the same install across launches.

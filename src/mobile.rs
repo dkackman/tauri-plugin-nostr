@@ -11,17 +11,17 @@ tauri::ios_plugin_binding!(init_plugin_tauri_plugin_nostr_sync);
 pub fn init<R: Runtime, C: DeserializeOwned>(
     _app: &AppHandle<R>,
     api: PluginApi<R, C>,
-) -> crate::Result<TauriPluginNostr<R>> {
+) -> crate::Result<TauriPluginNostrSync<R>> {
     #[cfg(target_os = "android")]
     let handle = api.register_android_plugin("tauri-plugin-nostr-sync", "ExamplePlugin")?;
     #[cfg(target_os = "ios")]
     let handle = api.register_ios_plugin(init_plugin_tauri_plugin_nostr_sync)?;
-    Ok(TauriPluginNostr(handle))
+    Ok(TauriPluginNostrSync(handle))
 }
 
 /// Access to the tauri-plugin-nostr-sync APIs.
-pub struct TauriPluginNostr<R: Runtime>(PluginHandle<R>);
+pub struct TauriPluginNostrSync<R: Runtime>(PluginHandle<R>);
 
-impl<R: Runtime> TauriPluginNostr<R> {
+impl<R: Runtime> TauriPluginNostrSync<R> {
     // Commands will be added in Phase 2.
 }

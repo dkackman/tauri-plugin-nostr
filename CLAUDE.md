@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-`tauri-plugin-nostr` is a Tauri 2.x plugin implementing encrypted, decentralized state sync across app instances using Nostr replaceable events (NIP-33, kind `30078`) as transport, with NIP-44 encryption. The full design spec is in `specs/tauri-plugin-nostr.md`.
+`tauri-plugin-nostr-sync` is a Tauri 2.x plugin implementing encrypted, decentralized state sync across app instances using Nostr replaceable events (NIP-33, kind `30078`) as transport, with NIP-44 encryption. The full design spec is in `specs/tauri-plugin-nostr.md`.
 
 The plugin is **transport only** — it moves encrypted blobs between instances via Nostr relays. Key derivation, storage, schema versioning, and conflict resolution are the host app's responsibility.
 

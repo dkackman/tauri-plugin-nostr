@@ -48,7 +48,7 @@ importers:
       '@tauri-apps/api':
         specifier: ^2.0.0
         version: 2.11.0
-      tauri-plugin-nostr-api:
+      tauri-plugin-nostr-sync-api:
         specifier: file:../../
         version: 'file:'
     devDependencies:
@@ -1031,7 +1031,7 @@ packages:
     resolution: {integrity: sha512-2uCs/LZ9us+AktdzYJM8OcxQ8qnPS1kpaO7syGT/MgO+6Qr1Ybl+TqPq+97u7PHqmmMlye5ZkoyXONy5mjjAbw==}
     engines: {node: '>=18'}
 
-  'tauri-plugin-nostr-api@file:':
+  'tauri-plugin-nostr-sync-api@file:':
     resolution: {directory: '', type: directory}
 
   tinyglobby@0.2.16:
@@ -1980,7 +1980,7 @@ snapshots:
     transitivePeerDependencies:
       - '@typescript-eslint/types'
 
-  'tauri-plugin-nostr-api@file:':
+  'tauri-plugin-nostr-sync-api@file:':
     dependencies:
       '@tauri-apps/api': 2.11.0
 

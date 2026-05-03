@@ -1,10 +1,27 @@
 # tauri-plugin-nostr-sync Phase 1: Core State Machine
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status: COMPLETE.** This plan has been executed. The implementation diverges from the original task list in several places after a post-implementation review removed duplication with `nostr-sdk`. The deviations are summarised below; treat the task list itself as historical context. New work should be planned against `specs/tauri-plugin-nostr.md` and `docs/superpowers/specs/2026-05-02-tauri-plugin-nostr-sync-design.md` (both updated to reflect the simplified architecture).
 
-**Goal:** Build and unit-test `NostrSyncState` — the core Nostr sync engine with relay management, runtime signer injection, NIP-44 encrypt/decrypt, and fire-and-forget publish/fetch — entirely in pure Rust with no Tauri IPC wiring.
+## Post-implementation simplifications
 
-**Architecture:** `NostrSyncState` wraps `nostr_sdk::Client` for relay connections and holds the signer behind `tokio::sync::RwLock<Option<Arc<dyn NostrSigner>>>` for runtime injection. Events are built with `EventBuilder`, signed asynchronously via the signer trait, then broadcast via `client.send_event`. The `Client` carries no signer of its own. `TauriPluginNostrSync<R>` in `desktop.rs` wraps `Arc<NostrSyncState>` and exposes the host-app-facing Rust API.
+After Phase 1 was committed, the following were removed because they duplicated functionality `nostr-sdk` already provides, or because they were premature:
+
+1. **Parallel signer slot.** Tasks 6 and 7 added `signer: RwLock<Option<Arc<dyn NostrSigner>>>` to `NostrSyncState`. The field was deleted; the plugin now stores the signer inside `nostr_sdk::Client` via `Client::set_signer` / `Client::unset_signer` and reads it back through `Client::signer().await`.
+2. **Manual `connect_relay` after `add_relay`.** Task 8's `add_relay` called `connect_relay` explicitly. The client is now constructed with `Options::default().autoconnect(true)`, so the second call is gone.
+3. **`known_timestamps` cache check inside `fetch`.** Task 11 had `fetch` return `None` when the relay's event was not strictly newer than a cached timestamp, conflating "no value on relay" with "I already saw this value". The check (and the `is_newer` helper plus its 4 unit tests) was removed; `fetch` always returns what the relay holds. Phase 3 will reintroduce equivalent dedup logic on the receive subscription path where it actually belongs.
+4. **`src/outbox.rs` stub and `backoff_secs`.** Task 4 added a `backoff_secs` helper as the seed for a JSONL-persisted retry queue. The whole outbox concept was cut in favour of `publish` returning a synchronous `Result` — `nostr-sdk` already auto-reconnects relays, so the only thing an outbox would buy is durable cross-restart publish, which is now a host-app concern. The file was deleted.
+5. **`outbox_depth` field on `SyncStatus`.** Removed from `src/models.rs` along with the outbox itself.
+6. **`zeroize` direct dependency.** Never added — `nostr_sdk::Keys` already implements `ZeroizeOnDrop`.
+
+## Original goal (unchanged)
+
+**Goal:** Build and unit-test `NostrSyncState` — the core Nostr sync engine with relay management, runtime signer injection, NIP-44 encrypt/decrypt, and synchronous publish/fetch — entirely in pure Rust with no Tauri IPC wiring.
+
+**Architecture (as built):** `NostrSyncState` holds a `nostr_sdk::Client` constructed with `autoconnect(true)`. The Client owns both the relay pool and the signer. Events are built with `EventBuilder`, signed via `signer.sign_event`, then broadcast via `client.send_event`. `TauriPluginNostrSync<R>` in `desktop.rs` wraps `Arc<NostrSyncState>` and exposes the host-app-facing Rust API.
+
+---
+
+> The remaining sections preserve the original task-by-task plan as it was executed at the time. Use them for git-archaeology, not as a reference for current behavior.
 
 **Tech Stack:** Rust 1.77+, nostr-sdk 0.38, tokio (Tauri's runtime), serde_json 1, uuid 1, chrono 0.4, tauri 2.5, thiserror 2
 

@@ -1,9 +1,9 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use nostr_sdk::{Client, EventBuilder, Filter, Kind, NostrSigner, PublicKey, RelayStatus, Tag, Timestamp};
-use tokio::sync::RwLock;
+use nostr_sdk::{
+    Client, EventBuilder, Filter, Kind, NostrSigner, Options, PublicKey, RelayStatus, Tag,
+};
 
 use crate::{Error, RelayInfo, Result, SyncStatus};
 
@@ -11,42 +11,36 @@ pub struct NostrSyncState {
     pub(crate) namespace: String,
     pub(crate) device_id: String,
     pub(crate) client: Client,
-    pub(crate) signer: RwLock<Option<Arc<dyn NostrSigner>>>,
-    pub(crate) known_timestamps: RwLock<HashMap<String, Timestamp>>,
 }
 
 impl NostrSyncState {
     pub fn new(namespace: &str) -> Result<Self> {
         validate_namespace(namespace)?;
+        let opts = Options::default().autoconnect(true);
+        let client = Client::builder().opts(opts).build();
         Ok(Self {
             namespace: namespace.to_string(),
             device_id: uuid::Uuid::new_v4().to_string(),
-            client: Client::default(),
-            signer: RwLock::new(None),
-            known_timestamps: RwLock::new(HashMap::new()),
+            client,
         })
     }
 
     pub async fn set_signer(&self, signer: impl NostrSigner + 'static) -> Result<()> {
-        let mut guard = self.signer.write().await;
-        *guard = Some(Arc::new(signer));
+        self.client.set_signer(signer).await;
         Ok(())
     }
 
     pub async fn clear_signer(&self) {
-        let mut guard = self.signer.write().await;
-        *guard = None;
-        // The Arc drops here; ZeroizeOnDrop on the underlying Keys zeroes key bytes.
+        self.client.unset_signer().await;
     }
 
     pub async fn pubkey(&self) -> Option<PublicKey> {
-        let guard = self.signer.read().await;
-        let signer = guard.as_ref()?;
+        let signer = self.client.signer().await.ok()?;
         signer.get_public_key().await.ok()
     }
 
     pub async fn status(&self) -> SyncStatus {
-        let has_signer = self.signer.read().await.is_some();
+        let has_signer = self.client.has_signer().await;
         let relays_map = self.client.relays().await;
         let relay_count = relays_map.len();
         let connected_relay_count = relays_map
@@ -56,7 +50,6 @@ impl NostrSyncState {
 
         SyncStatus {
             ready: has_signer && connected_relay_count > 0,
-            outbox_depth: 0,
             relay_count,
             connected_relay_count,
         }
@@ -64,7 +57,6 @@ impl NostrSyncState {
 
     pub async fn add_relay(&self, url: &str) -> Result<()> {
         self.client.add_relay(url).await?;
-        self.client.connect_relay(url).await?;
         Ok(())
     }
 
@@ -86,11 +78,11 @@ impl NostrSyncState {
     }
 
     pub async fn publish(&self, category: &str, payload: &serde_json::Value) -> Result<()> {
-        let signer: Arc<dyn NostrSigner> = {
-            let guard = self.signer.read().await;
-            Arc::clone(guard.as_ref().ok_or(Error::SignerNotSet)?)
-        };
-        // guard dropped here; lock released before network I/O
+        let signer = self
+            .client
+            .signer()
+            .await
+            .map_err(|_| Error::SignerNotSet)?;
 
         let ciphertext = encrypt_payload(&signer, payload).await?;
         let dtag = build_dtag(&self.namespace, category);
@@ -119,11 +111,11 @@ impl NostrSyncState {
     }
 
     pub async fn fetch(&self, category: &str) -> Result<Option<crate::FetchResult>> {
-        let signer: Arc<dyn NostrSigner> = {
-            let guard = self.signer.read().await;
-            Arc::clone(guard.as_ref().ok_or(Error::SignerNotSet)?)
-        };
-        // guard dropped here; lock released before network I/O
+        let signer = self
+            .client
+            .signer()
+            .await
+            .map_err(|_| Error::SignerNotSet)?;
 
         let pubkey = signer
             .get_public_key()
@@ -134,27 +126,20 @@ impl NostrSyncState {
         let filter = Filter::new()
             .kind(Kind::from(30078u16))
             .author(pubkey)
-            .identifier(dtag.clone());
+            .identifier(dtag);
 
-        let timeout = Duration::from_secs(10);
-        let events = self.client.fetch_events(vec![filter], timeout).await?;
+        let events = self
+            .client
+            .fetch_events(vec![filter], Duration::from_secs(10))
+            .await?;
 
-        // Events is already sorted descending by created_at; take the newest.
         let event = match events.first() {
             Some(e) => e.clone(),
             None => return Ok(None),
         };
 
-        // Only surface the event if it's newer than what we've already seen.
-        let mut timestamps = self.known_timestamps.write().await;
-        let known = timestamps.get(category);
-        if !is_newer(known, &event.created_at) {
-            return Ok(None);
-        }
-
         let payload = decrypt_payload(&signer, &event.content).await?;
 
-        // Extract device_id from event tags.
         let device_id = event
             .tags
             .iter()
@@ -167,8 +152,6 @@ impl NostrSyncState {
                 }
             })
             .unwrap_or_else(|| pubkey.to_hex());
-
-        timestamps.insert(category.to_string(), event.created_at);
 
         let updated_at = chrono::DateTime::from_timestamp(event.created_at.as_u64() as i64, 0)
             .unwrap_or_else(chrono::Utc::now);
@@ -186,7 +169,10 @@ const PAYLOAD_LIMIT: usize = 64 * 1024; // 64KB
 fn check_payload_size(json: &str) -> Result<()> {
     let size = json.len();
     if size > PAYLOAD_LIMIT {
-        return Err(Error::PayloadTooLarge { size, limit: PAYLOAD_LIMIT });
+        return Err(Error::PayloadTooLarge {
+            size,
+            limit: PAYLOAD_LIMIT,
+        });
     }
     Ok(())
 }
@@ -199,8 +185,8 @@ async fn encrypt_payload(
         .get_public_key()
         .await
         .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
-    let json = serde_json::to_string(payload)
-        .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
+    let json =
+        serde_json::to_string(payload).map_err(|e| Error::EncryptionFailed(e.to_string()))?;
     check_payload_size(&json)?;
     signer
         .nip44_encrypt(&pubkey, &json)
@@ -221,14 +207,6 @@ async fn decrypt_payload(
         .await
         .map_err(|e| Error::DecryptionFailed(e.to_string()))?;
     serde_json::from_str(&json).map_err(|e| Error::DecryptionFailed(e.to_string()))
-}
-
-/// Returns true if `incoming` is strictly newer than `known`, or if there is no known timestamp.
-fn is_newer(known: Option<&Timestamp>, incoming: &Timestamp) -> bool {
-    match known {
-        None => true,
-        Some(k) => incoming > k,
-    }
 }
 
 /// Constructs the NIP-33 d-tag value: `{namespace}/{category}/v1`
@@ -254,11 +232,6 @@ mod tests {
     #[test]
     fn dtag_format_includes_namespace_category_and_version() {
         assert_eq!(build_dtag("sage", "ui-settings"), "sage/ui-settings/v1");
-    }
-
-    #[test]
-    fn dtag_works_with_various_inputs() {
-        assert_eq!(build_dtag("myapp", "wallet-config"), "myapp/wallet-config/v1");
     }
 
     #[test]
@@ -289,7 +262,6 @@ mod tests {
         let state = NostrSyncState::new("testapp").unwrap();
         let status = state.status().await;
         assert!(!status.ready);
-        assert_eq!(status.outbox_depth, 0);
     }
 
     #[tokio::test]
@@ -316,28 +288,49 @@ mod tests {
     }
 
     #[test]
-    fn timestamp_newer_wins() {
-        let old = Timestamp::from(100u64);
-        let new = Timestamp::from(200u64);
-        assert!(is_newer(Some(&old), &new));
+    fn new_rejects_invalid_namespace() {
+        assert!(matches!(
+            NostrSyncState::new(""),
+            Err(Error::InvalidNamespace(_))
+        ));
+        assert!(matches!(
+            NostrSyncState::new("a/b"),
+            Err(Error::InvalidNamespace(_))
+        ));
     }
 
-    #[test]
-    fn timestamp_equal_is_discarded() {
-        let t = Timestamp::from(100u64);
-        assert!(!is_newer(Some(&t), &t));
+    #[tokio::test]
+    async fn publish_without_signer_returns_signer_not_set() {
+        let state = NostrSyncState::new("testapp").unwrap();
+        let result = state
+            .publish("ui-settings", &serde_json::json!({ "theme": "dark" }))
+            .await;
+        assert!(matches!(result, Err(Error::SignerNotSet)));
     }
 
-    #[test]
-    fn timestamp_older_is_discarded() {
-        let old = Timestamp::from(100u64);
-        let new = Timestamp::from(200u64);
-        assert!(!is_newer(Some(&new), &old));
+    #[tokio::test]
+    async fn fetch_without_signer_returns_signer_not_set() {
+        let state = NostrSyncState::new("testapp").unwrap();
+        let result = state.fetch("ui-settings").await;
+        assert!(matches!(result, Err(Error::SignerNotSet)));
     }
 
-    #[test]
-    fn timestamp_no_known_is_always_newer() {
-        let t = Timestamp::from(100u64);
-        assert!(is_newer(None, &t));
+    #[tokio::test]
+    async fn pubkey_is_none_without_signer() {
+        let state = NostrSyncState::new("testapp").unwrap();
+        assert!(state.pubkey().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn signer_lifecycle_exposes_then_hides_pubkey() {
+        let state = NostrSyncState::new("testapp").unwrap();
+        let keys = nostr_sdk::Keys::generate();
+        let expected = keys.public_key();
+
+        state.set_signer(keys).await.unwrap();
+        assert_eq!(state.pubkey().await, Some(expected));
+
+        state.clear_signer().await;
+        assert!(state.pubkey().await.is_none());
     }
 }

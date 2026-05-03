@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
-    "tauri-plugin-nostr-api": "file:../../"
+    "tauri-plugin-nostr-sync-api": "file:../../"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
