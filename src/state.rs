@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
-use nostr_sdk::{Client, NostrSigner, PublicKey, RelayStatus, Timestamp};
+use nostr_sdk::{Client, EventBuilder, Filter, Kind, NostrSigner, PublicKey, RelayStatus, Tag, Timestamp};
 use tokio::sync::RwLock;
 
 use crate::{Error, RelayInfo, Result, SyncStatus};
@@ -82,6 +83,36 @@ impl NostrSyncState {
                 last_seen: None,
             })
             .collect()
+    }
+
+    pub async fn publish(&self, category: &str, payload: &serde_json::Value) -> Result<()> {
+        let guard = self.signer.read().await;
+        let signer = guard.as_ref().ok_or(Error::SignerNotSet)?;
+
+        let ciphertext = encrypt_payload(signer, payload).await?;
+        let dtag = build_dtag(&self.namespace, category);
+        let kind = Kind::from(30078u16);
+
+        let pubkey = signer
+            .get_public_key()
+            .await
+            .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
+
+        let device_tag = Tag::parse(vec!["device_id", &self.device_id])
+            .unwrap_or_else(|_| Tag::identifier("unknown"));
+
+        let unsigned = EventBuilder::new(kind, ciphertext)
+            .tag(Tag::identifier(&dtag))
+            .tag(device_tag)
+            .build(pubkey);
+
+        let event = signer
+            .sign_event(unsigned)
+            .await
+            .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
+
+        self.client.send_event(event).await?;
+        Ok(())
     }
 }
 
