@@ -6,6 +6,25 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
+
+    #[error("nostr error: {0}")]
+    Nostr(#[from] nostr_sdk::client::Error),
+
+    #[error("signer not set — call set_signer before publishing or fetching")]
+    SignerNotSet,
+
+    #[error("payload too large: {size} bytes exceeds {limit} byte limit")]
+    PayloadTooLarge { size: usize, limit: usize },
+
+    #[error("encryption failed: {0}")]
+    EncryptionFailed(String),
+
+    #[error("decryption failed: {0}")]
+    DecryptionFailed(String),
+
+    #[error("invalid namespace '{0}': must be non-empty and contain no '/' characters")]
+    InvalidNamespace(String),
+
     #[cfg(mobile)]
     #[error(transparent)]
     PluginInvoke(#[from] tauri::plugin::mobile::PluginInvokeError),
