@@ -27,7 +27,7 @@ impl NostrSyncState {
         })
     }
 
-    pub async fn set_signer(&self, signer: impl NostrSigner + Send + Sync + 'static) -> Result<()> {
+    pub async fn set_signer(&self, signer: impl NostrSigner + 'static) -> Result<()> {
         let mut guard = self.signer.write().await;
         *guard = Some(Arc::new(signer));
         Ok(())

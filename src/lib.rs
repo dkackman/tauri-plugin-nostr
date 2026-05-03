@@ -37,7 +37,7 @@ impl<R: Runtime, T: Manager<R>> TauriPluginNostrSyncExt<R> for T {
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("tauri-plugin-nostr-sync")
         .invoke_handler(tauri::generate_handler![])
-        .setup(|app, api| {
+        .setup(|app, _api| {
             #[cfg(mobile)]
             {
                 let plugin = mobile::init(app, api)?;

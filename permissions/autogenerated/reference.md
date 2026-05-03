@@ -18,7 +18,7 @@ Default permissions for the plugin
 <tr>
 <td>
 
-`nostr:allow-ping`
+`nostr-sync:allow-ping`
 
 </td>
 <td>
@@ -31,7 +31,7 @@ Enables the ping command without any pre-configured scope.
 <tr>
 <td>
 
-`nostr:deny-ping`
+`nostr-sync:deny-ping`
 
 </td>
 <td>

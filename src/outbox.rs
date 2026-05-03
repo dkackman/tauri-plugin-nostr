@@ -1,5 +1,6 @@
 /// Returns the number of seconds to wait before the next retry attempt.
 /// Implements capped exponential backoff: min(2^attempts, 300).
+#[allow(dead_code)] // used in Phase 3 outbox retry loop
 pub fn backoff_secs(attempts: u32) -> u64 {
     let base: u64 = 2u64.saturating_pow(attempts);
     base.min(300)
