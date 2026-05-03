@@ -85,6 +85,48 @@ impl NostrSyncState {
     }
 }
 
+const PAYLOAD_LIMIT: usize = 64 * 1024; // 64KB
+
+fn check_payload_size(json: &str) -> Result<()> {
+    let size = json.len();
+    if size > PAYLOAD_LIMIT {
+        return Err(Error::PayloadTooLarge { size, limit: PAYLOAD_LIMIT });
+    }
+    Ok(())
+}
+
+async fn encrypt_payload(
+    signer: &Arc<dyn NostrSigner>,
+    payload: &serde_json::Value,
+) -> Result<String> {
+    let pubkey = signer
+        .get_public_key()
+        .await
+        .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
+    let json = serde_json::to_string(payload)
+        .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
+    check_payload_size(&json)?;
+    signer
+        .nip44_encrypt(&pubkey, &json)
+        .await
+        .map_err(|e| Error::EncryptionFailed(e.to_string()))
+}
+
+async fn decrypt_payload(
+    signer: &Arc<dyn NostrSigner>,
+    ciphertext: &str,
+) -> Result<serde_json::Value> {
+    let pubkey = signer
+        .get_public_key()
+        .await
+        .map_err(|e| Error::DecryptionFailed(e.to_string()))?;
+    let json = signer
+        .nip44_decrypt(&pubkey, ciphertext)
+        .await
+        .map_err(|e| Error::DecryptionFailed(e.to_string()))?;
+    serde_json::from_str(&json).map_err(|e| Error::DecryptionFailed(e.to_string()))
+}
+
 /// Constructs the NIP-33 d-tag value: `{namespace}/{category}/v1`
 pub(crate) fn build_dtag(namespace: &str, category: &str) -> String {
     format!("{}/{}/v1", namespace, category)
@@ -144,5 +186,28 @@ mod tests {
         let status = state.status().await;
         assert!(!status.ready);
         assert_eq!(status.outbox_depth, 0);
+    }
+
+    #[tokio::test]
+    async fn payload_encrypt_decrypt_roundtrip() {
+        let keys = nostr_sdk::Keys::generate();
+        let signer: Arc<dyn NostrSigner> = Arc::new(keys);
+        let original = serde_json::json!({ "theme": "dark", "font_size": 14 });
+        let encrypted = encrypt_payload(&signer, &original).await.unwrap();
+        let decrypted = decrypt_payload(&signer, &encrypted).await.unwrap();
+        assert_eq!(original, decrypted);
+    }
+
+    #[test]
+    fn payload_at_limit_is_accepted() {
+        let json = "x".repeat(PAYLOAD_LIMIT);
+        assert!(check_payload_size(&json).is_ok());
+    }
+
+    #[test]
+    fn payload_over_limit_is_rejected() {
+        let json = "x".repeat(PAYLOAD_LIMIT + 1);
+        let result = check_payload_size(&json);
+        assert!(matches!(result, Err(Error::PayloadTooLarge { .. })));
     }
 }
