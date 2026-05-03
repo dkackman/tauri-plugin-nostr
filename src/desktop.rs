@@ -4,12 +4,24 @@ use tauri::{AppHandle, Runtime};
 
 use crate::{FetchResult, NostrSyncState, RelayInfo, Result, SyncStatus};
 
-pub fn init<R: Runtime>(app: &AppHandle<R>) -> crate::Result<TauriPluginNostrSync<R>> {
-    let state = Arc::new(NostrSyncState::new("default")?);
-    Ok(TauriPluginNostrSync {
+pub fn init<R: Runtime>(
+    app: &AppHandle<R>,
+    relays: Vec<String>,
+    namespace: &str,
+) -> crate::Result<TauriPluginNostrSync<R>> {
+    let state = Arc::new(NostrSyncState::new(namespace)?);
+    let plugin = TauriPluginNostrSync {
         _app: app.clone(),
         pub_state: state,
-    })
+    };
+    // Relay connections are kicked off async; errors surface later via status().
+    let state_clone = plugin.pub_state.clone();
+    tauri::async_runtime::spawn(async move {
+        for url in relays {
+            let _ = state_clone.add_relay(&url).await;
+        }
+    });
+    Ok(plugin)
 }
 
 pub struct TauriPluginNostrSync<R: Runtime> {

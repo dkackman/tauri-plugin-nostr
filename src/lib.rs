@@ -10,10 +10,13 @@ mod desktop;
 #[cfg(mobile)]
 mod mobile;
 
+mod builder;
 mod commands;
 mod error;
 mod models;
 mod state;
+
+pub use builder::PluginBuilder;
 
 pub use error::{Error, Result};
 pub use state::NostrSyncState;
@@ -45,7 +48,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             #[cfg(desktop)]
             {
                 let _ = &api; // api is used in mobile block; silence unused warning on desktop
-                let plugin = desktop::init(app)?;
+                let plugin = desktop::init(app, Vec::new(), "default")?;
                 app.manage(plugin);
             }
             Ok(())
