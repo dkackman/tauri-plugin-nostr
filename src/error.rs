@@ -19,6 +19,9 @@ pub enum Error {
     #[error("encryption failed: {0}")]
     EncryptionFailed(String),
 
+    #[error("signing failed: {0}")]
+    SigningFailed(String),
+
     #[error("decryption failed: {0}")]
     DecryptionFailed(String),
 

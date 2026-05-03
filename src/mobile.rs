@@ -5,7 +5,7 @@ use tauri::{
 };
 
 #[cfg(target_os = "ios")]
-tauri::ios_plugin_binding!(init_plugin_tauri_plugin_nostr);
+tauri::ios_plugin_binding!(init_plugin_tauri_plugin_nostr_sync);
 
 // initializes the Kotlin or Swift plugin classes
 pub fn init<R: Runtime, C: DeserializeOwned>(
@@ -13,13 +13,13 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
     api: PluginApi<R, C>,
 ) -> crate::Result<TauriPluginNostr<R>> {
     #[cfg(target_os = "android")]
-    let handle = api.register_android_plugin("tauri-plugin-nostr", "ExamplePlugin")?;
+    let handle = api.register_android_plugin("tauri-plugin-nostr-sync", "ExamplePlugin")?;
     #[cfg(target_os = "ios")]
-    let handle = api.register_ios_plugin(init_plugin_tauri_plugin_nostr)?;
+    let handle = api.register_ios_plugin(init_plugin_tauri_plugin_nostr_sync)?;
     Ok(TauriPluginNostr(handle))
 }
 
-/// Access to the tauri-plugin-nostr APIs.
+/// Access to the tauri-plugin-nostr-sync APIs.
 pub struct TauriPluginNostr<R: Runtime>(PluginHandle<R>);
 
 impl<R: Runtime> TauriPluginNostr<R> {

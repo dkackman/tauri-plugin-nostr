@@ -14,7 +14,7 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> crate::Result<TauriPluginNostrSyn
 
 pub struct TauriPluginNostrSync<R: Runtime> {
     _app: AppHandle<R>,
-    pub pub_state: Arc<NostrSyncState>,
+    pub(crate) pub_state: Arc<NostrSyncState>,
 }
 
 impl<R: Runtime> TauriPluginNostrSync<R> {

@@ -86,10 +86,13 @@ impl NostrSyncState {
     }
 
     pub async fn publish(&self, category: &str, payload: &serde_json::Value) -> Result<()> {
-        let guard = self.signer.read().await;
-        let signer = guard.as_ref().ok_or(Error::SignerNotSet)?;
+        let signer: Arc<dyn NostrSigner> = {
+            let guard = self.signer.read().await;
+            Arc::clone(guard.as_ref().ok_or(Error::SignerNotSet)?)
+        };
+        // guard dropped here; lock released before network I/O
 
-        let ciphertext = encrypt_payload(signer, payload).await?;
+        let ciphertext = encrypt_payload(&signer, payload).await?;
         let dtag = build_dtag(&self.namespace, category);
         let kind = Kind::from(30078u16);
 
@@ -99,7 +102,7 @@ impl NostrSyncState {
             .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
 
         let device_tag = Tag::parse(vec!["device_id", &self.device_id])
-            .unwrap_or_else(|_| Tag::identifier("unknown"));
+            .expect("device_id tag construction is infallible");
 
         let unsigned = EventBuilder::new(kind, ciphertext)
             .tag(Tag::identifier(&dtag))
@@ -109,15 +112,18 @@ impl NostrSyncState {
         let event = signer
             .sign_event(unsigned)
             .await
-            .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
+            .map_err(|e| Error::SigningFailed(e.to_string()))?;
 
         self.client.send_event(event).await?;
         Ok(())
     }
 
     pub async fn fetch(&self, category: &str) -> Result<Option<crate::FetchResult>> {
-        let guard = self.signer.read().await;
-        let signer = guard.as_ref().ok_or(Error::SignerNotSet)?;
+        let signer: Arc<dyn NostrSigner> = {
+            let guard = self.signer.read().await;
+            Arc::clone(guard.as_ref().ok_or(Error::SignerNotSet)?)
+        };
+        // guard dropped here; lock released before network I/O
 
         let pubkey = signer
             .get_public_key()
@@ -146,7 +152,7 @@ impl NostrSyncState {
             return Ok(None);
         }
 
-        let payload = decrypt_payload(signer, &event.content).await?;
+        let payload = decrypt_payload(&signer, &event.content).await?;
 
         // Extract device_id from event tags.
         let device_id = event
