@@ -1,7 +1,48 @@
-use crate::{Error, Result};
+use std::collections::HashMap;
+use std::sync::Arc;
 
-// NostrSyncState will be implemented in Task 6.
-pub struct NostrSyncState;
+use nostr_sdk::{Client, NostrSigner, RelayStatus, Timestamp};
+use tokio::sync::RwLock;
+
+use crate::{Error, Result, SyncStatus};
+
+pub struct NostrSyncState {
+    pub(crate) namespace: String,
+    pub(crate) device_id: String,
+    pub(crate) client: Client,
+    pub(crate) signer: RwLock<Option<Arc<dyn NostrSigner>>>,
+    pub(crate) known_timestamps: RwLock<HashMap<String, Timestamp>>,
+}
+
+impl NostrSyncState {
+    pub fn new(namespace: &str) -> Result<Self> {
+        validate_namespace(namespace)?;
+        Ok(Self {
+            namespace: namespace.to_string(),
+            device_id: uuid::Uuid::new_v4().to_string(),
+            client: Client::default(),
+            signer: RwLock::new(None),
+            known_timestamps: RwLock::new(HashMap::new()),
+        })
+    }
+
+    pub async fn status(&self) -> SyncStatus {
+        let has_signer = self.signer.read().await.is_some();
+        let relays_map = self.client.relays().await;
+        let relay_count = relays_map.len();
+        let connected_relay_count = relays_map
+            .values()
+            .filter(|r| matches!(r.status(), RelayStatus::Connected))
+            .count();
+
+        SyncStatus {
+            ready: has_signer && connected_relay_count > 0,
+            outbox_depth: 0,
+            relay_count,
+            connected_relay_count,
+        }
+    }
+}
 
 /// Constructs the NIP-33 d-tag value: `{namespace}/{category}/v1`
 pub(crate) fn build_dtag(namespace: &str, category: &str) -> String {
@@ -54,5 +95,13 @@ mod tests {
         assert!(validate_namespace("sage").is_ok());
         assert!(validate_namespace("my-app").is_ok());
         assert!(validate_namespace("app_v2").is_ok());
+    }
+
+    #[tokio::test]
+    async fn sync_status_not_ready_without_signer() {
+        let state = NostrSyncState::new("testapp").unwrap();
+        let status = state.status().await;
+        assert!(!status.ready);
+        assert_eq!(status.outbox_depth, 0);
     }
 }
