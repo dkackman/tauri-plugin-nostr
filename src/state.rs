@@ -106,7 +106,10 @@ impl NostrSyncState {
             .await
             .map_err(|e| Error::SigningFailed(e.to_string()))?;
 
-        self.client.send_event(&event).await?;
+        let output = self.client.send_event(&event).await?;
+        if output.success.is_empty() {
+            return Err(Error::NoRelaysAccepted);
+        }
         Ok(())
     }
 
@@ -161,6 +164,16 @@ impl NostrSyncState {
             updated_at,
             device_id,
         }))
+    }
+
+    pub async fn sync_all(&self, categories: &[String]) -> Result<Vec<crate::FetchResult>> {
+        let mut results = Vec::new();
+        for category in categories {
+            if let Some(result) = self.fetch(category).await? {
+                results.push(result);
+            }
+        }
+        Ok(results)
     }
 }
 
@@ -319,6 +332,24 @@ mod tests {
     async fn pubkey_is_none_without_signer() {
         let state = NostrSyncState::new("testapp").unwrap();
         assert!(state.pubkey().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn sync_all_without_signer_returns_signer_not_set() {
+        let state = NostrSyncState::new("testapp").unwrap();
+        let categories = vec!["ui-settings".to_string(), "wallet".to_string()];
+        let result = state.sync_all(&categories).await;
+        assert!(matches!(result, Err(Error::SignerNotSet)));
+    }
+
+    #[tokio::test]
+    async fn sync_all_with_empty_categories_returns_empty_vec() {
+        let state = NostrSyncState::new("testapp").unwrap();
+        let keys = nostr_sdk::Keys::generate();
+        state.set_signer(keys).await.unwrap();
+        // No relay connected — sync_all with empty slice returns Ok([]) immediately
+        let result = state.sync_all(&[]).await;
+        assert!(matches!(result, Ok(ref v) if v.is_empty()));
     }
 
     #[tokio::test]

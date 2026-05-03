@@ -28,6 +28,9 @@ pub enum Error {
     #[error("invalid namespace '{0}': must be non-empty and contain no '/' characters")]
     InvalidNamespace(String),
 
+    #[error("no relays accepted the event")]
+    NoRelaysAccepted,
+
     #[cfg(mobile)]
     #[error(transparent)]
     PluginInvoke(#[from] tauri::plugin::mobile::PluginInvokeError),
