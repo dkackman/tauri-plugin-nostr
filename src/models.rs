@@ -25,6 +25,12 @@ pub struct FetchResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SyncAllRequest {
+    pub categories: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SyncStatus {
     pub ready: bool,
     pub relay_count: usize,
@@ -87,5 +93,12 @@ mod tests {
         let json = serde_json::to_value(&info).unwrap();
         assert!(json.get("lastSeen").is_some());
         assert!(json.get("last_seen").is_none());
+    }
+
+    #[test]
+    fn sync_all_request_deserializes_categories() {
+        let json = r#"{"categories":["ui-settings","wallet"]}"#;
+        let req: SyncAllRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.categories, vec!["ui-settings", "wallet"]);
     }
 }
