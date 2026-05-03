@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use nostr_sdk::{Client, NostrSigner, RelayStatus, Timestamp};
+use nostr_sdk::{Client, NostrSigner, PublicKey, RelayStatus, Timestamp};
 use tokio::sync::RwLock;
 
 use crate::{Error, Result, SyncStatus};
@@ -24,6 +24,24 @@ impl NostrSyncState {
             signer: RwLock::new(None),
             known_timestamps: RwLock::new(HashMap::new()),
         })
+    }
+
+    pub async fn set_signer(&self, signer: impl NostrSigner + Send + Sync + 'static) -> Result<()> {
+        let mut guard = self.signer.write().await;
+        *guard = Some(Arc::new(signer));
+        Ok(())
+    }
+
+    pub async fn clear_signer(&self) {
+        let mut guard = self.signer.write().await;
+        *guard = None;
+        // The Arc drops here; ZeroizeOnDrop on the underlying Keys zeroes key bytes.
+    }
+
+    pub async fn pubkey(&self) -> Option<PublicKey> {
+        let guard = self.signer.read().await;
+        let signer = guard.as_ref()?;
+        signer.get_public_key().await.ok()
     }
 
     pub async fn status(&self) -> SyncStatus {
