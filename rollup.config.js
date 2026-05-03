@@ -1,9 +1,10 @@
 import { readFileSync } from 'fs'
-import { join } from 'path'
+import { dirname, join } from 'path'
 import { cwd } from 'process'
 import typescript from '@rollup/plugin-typescript'
 
 const pkg = JSON.parse(readFileSync(join(cwd(), 'package.json'), 'utf8'))
+const outDir = dirname(pkg.exports.import)
 
 export default {
   input: 'guest-js/index.ts',
@@ -20,7 +21,8 @@ export default {
   plugins: [
     typescript({
       declaration: true,
-      declarationDir: `./${pkg.exports.import.split('/')[0]}`
+      declarationDir: outDir,
+      rootDir: 'guest-js'
     })
   ],
   external: [
