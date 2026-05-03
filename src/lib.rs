@@ -20,7 +20,7 @@ pub use error::{Error, Result};
 pub use state::NostrSyncState;
 
 #[cfg(desktop)]
-use desktop::TauriPluginNostr as TauriPluginNostrSync;
+use desktop::TauriPluginNostrSync;
 #[cfg(mobile)]
 use mobile::TauriPluginNostr as TauriPluginNostrSync;
 
@@ -45,7 +45,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             }
             #[cfg(desktop)]
             {
-                let plugin = desktop::init(app, api)?;
+                let plugin = desktop::init(app)?;
                 app.manage(plugin);
             }
             Ok(())
