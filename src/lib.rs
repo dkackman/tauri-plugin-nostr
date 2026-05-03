@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use tauri::{
     plugin::{Builder, TauriPlugin},
     Manager, Runtime,
