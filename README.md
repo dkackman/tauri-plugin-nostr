@@ -1,8 +1,12 @@
-# tauri-plugin-nostr
+# tauri-plugin-nostr-sync
 
 Encrypted, decentralized state sync for Tauri apps using [Nostr](https://nostr.com) replaceable events as transport.
 
 The plugin moves encrypted blobs between instances of your app via Nostr relays. Key derivation, storage, schema versioning, and conflict resolution are your app's responsibility — the plugin is transport only.
+
+## Status
+
+Pre-1.0 and under active development. **Phase 1** (the in-process Rust state machine: signer lifecycle, relay management, single-shot publish/fetch, NIP-44 encryption, payload size guard) is implemented. **Phase 2** — Tauri IPC commands, the persisted retry outbox, frontend events, `syncAll`, and the configurable `Builder` shown below — is not yet wired up. Until Phase 2 lands, the JS/TS API and the `Builder` configuration described here are the *target* surface, not what `cargo build` / `pnpm build` produces today. See `specs/tauri-plugin-nostr.md` for the full design.
 
 ## How it works
 
@@ -18,15 +22,15 @@ Add the Rust crate to your `src-tauri/Cargo.toml`:
 
 ```toml
 [dependencies]
-tauri-plugin-nostr = "0.1"
+tauri-plugin-nostr-sync = "0.1"
 ```
 
 Add the JavaScript bindings:
 
 ```sh
-pnpm add tauri-plugin-nostr-api
+pnpm add tauri-plugin-nostr-sync-api
 # or
-npm install tauri-plugin-nostr-api
+npm install tauri-plugin-nostr-sync-api
 ```
 
 ## Setup
@@ -36,7 +40,7 @@ Register the plugin in your Tauri app:
 ```rust
 tauri::Builder::default()
     .plugin(
-        tauri_plugin_nostr::Builder::new()
+        tauri_plugin_nostr_sync::Builder::new()
             .relays(vec![
                 "wss://relay.damus.io",
                 "wss://relay.nostr.band",
@@ -49,11 +53,13 @@ tauri::Builder::default()
     .expect("error while running tauri application");
 ```
 
+> Phase 1 ships only `tauri_plugin_nostr_sync::init()` with a hardcoded `"default"` namespace and no preconfigured relays. The `Builder` form above is the Phase 2 target.
+
 Add the permission to your app's capability file (`src-tauri/capabilities/default.json`):
 
 ```json
 {
-  "permissions": ["tauri-plugin-nostr:default"]
+  "permissions": ["nostr-sync:default"]
 }
 ```
 
@@ -70,16 +76,18 @@ let sync_secret = derive_sync_key(&wallet_master_key);
 let signer = nostr_sdk::Keys::new(sync_secret);
 
 // After unlock
-app.nostr_sync().set_signer(signer)?;
+app.nostr_sync().set_signer(signer).await?;
 
 // On lock — drops the signer and zeroes key material via ZeroizeOnDrop
-app.nostr_sync().clear_signer()?;
+app.nostr_sync().clear_signer().await;
 ```
 
 ### TypeScript API
 
+> The TypeScript surface below is the Phase 2 target; today `guest-js/index.ts` only exports a scaffolded `ping`.
+
 ```typescript
-import { NostrSync } from 'tauri-plugin-nostr-api'
+import { NostrSync } from 'tauri-plugin-nostr-sync-api'
 
 // Publish state for a named category (encrypted, fire-and-forget)
 await NostrSync.publish({
@@ -134,19 +142,22 @@ await listen('nostr-sync://error', (event) => {
 ### Rust API
 
 ```rust
-use tauri_plugin_nostr::TauriPluginNostrExt;
+use tauri_plugin_nostr_sync::TauriPluginNostrSyncExt;
 
 let sync = app.nostr_sync();
 
-sync.set_signer(signer)?;   // impl NostrSigner + Send + Sync + 'static
-sync.clear_signer()?;       // drops signer; ZeroizeOnDrop zeroes key material
+sync.set_signer(signer).await?;   // impl NostrSigner + 'static
+sync.clear_signer().await;        // drops signer; ZeroizeOnDrop zeroes key material
 
-let status = sync.status();
-let pubkey = sync.pubkey(); // Option<PublicKey>
+let status = sync.status().await;
+let pubkey = sync.pubkey().await; // Option<PublicKey>
 
-sync.add_relay("wss://relay.example.com")?;
-sync.remove_relay("wss://relay.example.com")?;
-let relays = sync.relays(); // Vec<RelayInfo>
+sync.add_relay("wss://relay.example.com").await?;
+sync.remove_relay("wss://relay.example.com").await?;
+let relays = sync.relays().await; // Vec<RelayInfo>
+
+sync.publish("ui-settings", &serde_json::json!({ "theme": "dark" })).await?;
+let result = sync.fetch("ui-settings").await?; // Option<FetchResult>
 ```
 
 ## Design notes

@@ -1,19 +1,5 @@
 <script>
   import Greet from "./lib/Greet.svelte";
-  import { ping } from "tauri-plugin-nostr-sync-api";
-
-  let response = "";
-
-  function updateResponse(returnValue) {
-    response +=
-      `[${new Date().toLocaleTimeString()}] ` +
-      (typeof returnValue === "string" ? returnValue : JSON.stringify(returnValue)) +
-      "<br>";
-  }
-
-  function _ping() {
-    ping("Pong!").then(updateResponse).catch(updateResponse);
-  }
 </script>
 
 <main class="container">
@@ -35,12 +21,6 @@
 
   <div class="row">
     <Greet />
-  </div>
-
-  <div>
-    <button on:click={_ping}>Ping</button>
-    <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-    <div>{@html response}</div>
   </div>
 </main>
 

@@ -2193,22 +2193,10 @@
           "markdownDescription": "Denies the unminimize command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`",
+          "description": "Default permissions for the plugin",
           "type": "string",
           "const": "nostr-sync:default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`"
-        },
-        {
-          "description": "Enables the ping command without any pre-configured scope.",
-          "type": "string",
-          "const": "nostr-sync:allow-ping",
-          "markdownDescription": "Enables the ping command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the ping command without any pre-configured scope.",
-          "type": "string",
-          "const": "nostr-sync:deny-ping",
-          "markdownDescription": "Denies the ping command without any pre-configured scope."
+          "markdownDescription": "Default permissions for the plugin"
         }
       ]
     },
