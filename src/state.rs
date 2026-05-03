@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use nostr_sdk::{
-    Client, EventBuilder, Filter, Kind, NostrSigner, Options, PublicKey, RelayStatus, Tag,
+    Client, ClientOptions, EventBuilder, Filter, Kind, NostrSigner, PublicKey, RelayStatus, Tag,
 };
 
 use crate::{Error, RelayInfo, Result, SyncStatus};
@@ -16,7 +16,7 @@ pub struct NostrSyncState {
 impl NostrSyncState {
     pub fn new(namespace: &str) -> Result<Self> {
         validate_namespace(namespace)?;
-        let opts = Options::default().autoconnect(true);
+        let opts = ClientOptions::default().autoconnect(true);
         let client = Client::builder().opts(opts).build();
         Ok(Self {
             namespace: namespace.to_string(),
@@ -106,7 +106,7 @@ impl NostrSyncState {
             .await
             .map_err(|e| Error::SigningFailed(e.to_string()))?;
 
-        self.client.send_event(event).await?;
+        self.client.send_event(&event).await?;
         Ok(())
     }
 
@@ -130,7 +130,7 @@ impl NostrSyncState {
 
         let events = self
             .client
-            .fetch_events(vec![filter], Duration::from_secs(10))
+            .fetch_events(filter, Duration::from_secs(10))
             .await?;
 
         let event = match events.first() {
@@ -153,7 +153,7 @@ impl NostrSyncState {
             })
             .unwrap_or_else(|| pubkey.to_hex());
 
-        let updated_at = chrono::DateTime::from_timestamp(event.created_at.as_u64() as i64, 0)
+        let updated_at = chrono::DateTime::from_timestamp(event.created_at.as_secs() as i64, 0)
             .unwrap_or_else(chrono::Utc::now);
 
         Ok(Some(crate::FetchResult {
