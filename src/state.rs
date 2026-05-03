@@ -114,6 +114,65 @@ impl NostrSyncState {
         self.client.send_event(event).await?;
         Ok(())
     }
+
+    pub async fn fetch(&self, category: &str) -> Result<Option<crate::FetchResult>> {
+        let guard = self.signer.read().await;
+        let signer = guard.as_ref().ok_or(Error::SignerNotSet)?;
+
+        let pubkey = signer
+            .get_public_key()
+            .await
+            .map_err(|e| Error::DecryptionFailed(e.to_string()))?;
+
+        let dtag = build_dtag(&self.namespace, category);
+        let filter = Filter::new()
+            .kind(Kind::from(30078u16))
+            .author(pubkey)
+            .identifier(dtag.clone());
+
+        let timeout = Duration::from_secs(10);
+        let events = self.client.fetch_events(vec![filter], timeout).await?;
+
+        // Events is already sorted descending by created_at; take the newest.
+        let event = match events.first() {
+            Some(e) => e.clone(),
+            None => return Ok(None),
+        };
+
+        // Only surface the event if it's newer than what we've already seen.
+        let mut timestamps = self.known_timestamps.write().await;
+        let known = timestamps.get(category);
+        if !is_newer(known, &event.created_at) {
+            return Ok(None);
+        }
+
+        let payload = decrypt_payload(signer, &event.content).await?;
+
+        // Extract device_id from event tags.
+        let device_id = event
+            .tags
+            .iter()
+            .find_map(|t| {
+                let slice = t.as_slice();
+                if slice.first().map(|s| s.as_str()) == Some("device_id") {
+                    slice.get(1).cloned()
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| pubkey.to_hex());
+
+        timestamps.insert(category.to_string(), event.created_at);
+
+        let updated_at = chrono::DateTime::from_timestamp(event.created_at.as_u64() as i64, 0)
+            .unwrap_or_else(chrono::Utc::now);
+
+        Ok(Some(crate::FetchResult {
+            payload,
+            updated_at,
+            device_id,
+        }))
+    }
 }
 
 const PAYLOAD_LIMIT: usize = 64 * 1024; // 64KB
@@ -156,6 +215,14 @@ async fn decrypt_payload(
         .await
         .map_err(|e| Error::DecryptionFailed(e.to_string()))?;
     serde_json::from_str(&json).map_err(|e| Error::DecryptionFailed(e.to_string()))
+}
+
+/// Returns true if `incoming` is strictly newer than `known`, or if there is no known timestamp.
+fn is_newer(known: Option<&Timestamp>, incoming: &Timestamp) -> bool {
+    match known {
+        None => true,
+        Some(k) => incoming > k,
+    }
 }
 
 /// Constructs the NIP-33 d-tag value: `{namespace}/{category}/v1`
@@ -240,5 +307,31 @@ mod tests {
         let json = "x".repeat(PAYLOAD_LIMIT + 1);
         let result = check_payload_size(&json);
         assert!(matches!(result, Err(Error::PayloadTooLarge { .. })));
+    }
+
+    #[test]
+    fn timestamp_newer_wins() {
+        let old = Timestamp::from(100u64);
+        let new = Timestamp::from(200u64);
+        assert!(is_newer(Some(&old), &new));
+    }
+
+    #[test]
+    fn timestamp_equal_is_discarded() {
+        let t = Timestamp::from(100u64);
+        assert!(!is_newer(Some(&t), &t));
+    }
+
+    #[test]
+    fn timestamp_older_is_discarded() {
+        let old = Timestamp::from(100u64);
+        let new = Timestamp::from(200u64);
+        assert!(!is_newer(Some(&new), &old));
+    }
+
+    #[test]
+    fn timestamp_no_known_is_always_newer() {
+        let t = Timestamp::from(100u64);
+        assert!(is_newer(None, &t));
     }
 }
