@@ -65,4 +65,8 @@ impl<R: Runtime> TauriPluginNostrSync<R> {
     pub async fn fetch(&self, category: &str) -> Result<Option<FetchResult>> {
         self.pub_state.fetch(category).await
     }
+
+    pub async fn sync_all(&self, categories: &[String]) -> Result<Vec<FetchResult>> {
+        self.pub_state.sync_all(categories).await
+    }
 }
