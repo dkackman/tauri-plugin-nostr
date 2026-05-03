@@ -4,7 +4,7 @@ use std::sync::Arc;
 use nostr_sdk::{Client, NostrSigner, PublicKey, RelayStatus, Timestamp};
 use tokio::sync::RwLock;
 
-use crate::{Error, Result, SyncStatus};
+use crate::{Error, RelayInfo, Result, SyncStatus};
 
 pub struct NostrSyncState {
     pub(crate) namespace: String,
@@ -59,6 +59,29 @@ impl NostrSyncState {
             relay_count,
             connected_relay_count,
         }
+    }
+
+    pub async fn add_relay(&self, url: &str) -> Result<()> {
+        self.client.add_relay(url).await?;
+        self.client.connect_relay(url).await?;
+        Ok(())
+    }
+
+    pub async fn remove_relay(&self, url: &str) -> Result<()> {
+        self.client.remove_relay(url).await?;
+        Ok(())
+    }
+
+    pub async fn relays(&self) -> Vec<RelayInfo> {
+        let relays_map = self.client.relays().await;
+        relays_map
+            .into_iter()
+            .map(|(url, relay)| RelayInfo {
+                url: url.to_string(),
+                connected: matches!(relay.status(), RelayStatus::Connected),
+                last_seen: None,
+            })
+            .collect()
     }
 }
 
