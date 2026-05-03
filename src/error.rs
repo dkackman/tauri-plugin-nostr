@@ -7,7 +7,7 @@ pub enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
-    #[error("nostr error: {0}")]
+    #[error(transparent)]
     Nostr(#[from] nostr_sdk::client::Error),
 
     #[error("signer not set — call set_signer before publishing or fetching")]
