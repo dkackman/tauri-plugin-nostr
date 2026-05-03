@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use tauri::{
     plugin::{Builder, TauriPlugin},
     Manager, Runtime,
@@ -13,35 +14,41 @@ mod mobile;
 mod commands;
 mod error;
 mod models;
+mod state;
+pub(crate) mod outbox;
 
 pub use error::{Error, Result};
+pub use state::NostrSyncState;
 
 #[cfg(desktop)]
-use desktop::TauriPluginNostr;
+use desktop::TauriPluginNostr as TauriPluginNostrSync;
 #[cfg(mobile)]
-use mobile::TauriPluginNostr;
+use mobile::TauriPluginNostr as TauriPluginNostrSync;
 
-/// Extensions to [`tauri::App`], [`tauri::AppHandle`] and [`tauri::Window`] to access the tauri-plugin-nostr APIs.
-pub trait TauriPluginNostrExt<R: Runtime> {
-    fn tauri_plugin_nostr(&self) -> &TauriPluginNostr<R>;
+pub trait TauriPluginNostrSyncExt<R: Runtime> {
+    fn nostr_sync(&self) -> &TauriPluginNostrSync<R>;
 }
 
-impl<R: Runtime, T: Manager<R>> crate::TauriPluginNostrExt<R> for T {
-    fn tauri_plugin_nostr(&self) -> &TauriPluginNostr<R> {
-        self.state::<TauriPluginNostr<R>>().inner()
+impl<R: Runtime, T: Manager<R>> TauriPluginNostrSyncExt<R> for T {
+    fn nostr_sync(&self) -> &TauriPluginNostrSync<R> {
+        self.state::<TauriPluginNostrSync<R>>().inner()
     }
 }
 
-/// Initializes the plugin.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
-    Builder::new("tauri-plugin-nostr")
-        .invoke_handler(tauri::generate_handler![commands::ping])
+    Builder::new("tauri-plugin-nostr-sync")
+        .invoke_handler(tauri::generate_handler![])
         .setup(|app, api| {
             #[cfg(mobile)]
-            let tauri_plugin_nostr = mobile::init(app, api)?;
+            {
+                let plugin = mobile::init(app, api)?;
+                app.manage(plugin);
+            }
             #[cfg(desktop)]
-            let tauri_plugin_nostr = desktop::init(app, api)?;
-            app.manage(tauri_plugin_nostr);
+            {
+                let plugin = desktop::init(app, api)?;
+                app.manage(plugin);
+            }
             Ok(())
         })
         .build()
