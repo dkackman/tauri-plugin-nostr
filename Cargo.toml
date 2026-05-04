@@ -22,5 +22,10 @@ tokio = { version = "1", features = ["sync", "rt", "macros"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 
+[dev-dependencies]
+tokio-tungstenite = "0.26"
+futures = "0.3"
+tauri = { version = "2.5.0", features = ["test"] }
+
 [build-dependencies]
 tauri-plugin = { version = "2.2.0", features = ["build"] }
