@@ -32,7 +32,16 @@ impl PluginBuilder {
         let namespace = self.namespace;
 
         tauri::plugin::Builder::<R>::new("tauri-plugin-nostr-sync")
-            .invoke_handler(tauri::generate_handler![])
+            .invoke_handler(tauri::generate_handler![
+                crate::commands::publish,
+                crate::commands::fetch,
+                crate::commands::sync_all,
+                crate::commands::add_relay,
+                crate::commands::remove_relay,
+                crate::commands::get_relays,
+                crate::commands::get_pubkey,
+                crate::commands::get_status,
+            ])
             .setup(move |app, api| {
                 #[cfg(mobile)]
                 {
