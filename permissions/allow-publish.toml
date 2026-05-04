@@ -1,0 +1,6 @@
+"$schema" = "../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-publish"
+description = "Enables the publish command."
+commands.allow = ["publish"]

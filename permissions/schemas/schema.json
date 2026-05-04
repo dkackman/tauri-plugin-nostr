@@ -295,10 +295,154 @@
       "type": "string",
       "oneOf": [
         {
-          "description": "Default permissions for the plugin",
+          "description": "Enables the add_relay command.",
+          "type": "string",
+          "const": "allow-add-relay",
+          "markdownDescription": "Enables the add_relay command."
+        },
+        {
+          "description": "Enables the fetch command.",
+          "type": "string",
+          "const": "allow-fetch",
+          "markdownDescription": "Enables the fetch command."
+        },
+        {
+          "description": "Enables the get_pubkey command.",
+          "type": "string",
+          "const": "allow-get-pubkey",
+          "markdownDescription": "Enables the get_pubkey command."
+        },
+        {
+          "description": "Enables the get_relays command.",
+          "type": "string",
+          "const": "allow-get-relays",
+          "markdownDescription": "Enables the get_relays command."
+        },
+        {
+          "description": "Enables the get_status command.",
+          "type": "string",
+          "const": "allow-get-status",
+          "markdownDescription": "Enables the get_status command."
+        },
+        {
+          "description": "Enables the publish command.",
+          "type": "string",
+          "const": "allow-publish",
+          "markdownDescription": "Enables the publish command."
+        },
+        {
+          "description": "Enables the remove_relay command.",
+          "type": "string",
+          "const": "allow-remove-relay",
+          "markdownDescription": "Enables the remove_relay command."
+        },
+        {
+          "description": "Enables the sync_all command.",
+          "type": "string",
+          "const": "allow-sync-all",
+          "markdownDescription": "Enables the sync_all command."
+        },
+        {
+          "description": "Enables the add_relay command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-add-relay",
+          "markdownDescription": "Enables the add_relay command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the add_relay command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-add-relay",
+          "markdownDescription": "Denies the add_relay command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the fetch command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-fetch",
+          "markdownDescription": "Enables the fetch command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the fetch command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-fetch",
+          "markdownDescription": "Denies the fetch command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_pubkey command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-pubkey",
+          "markdownDescription": "Enables the get_pubkey command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_pubkey command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-pubkey",
+          "markdownDescription": "Denies the get_pubkey command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_relays command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-relays",
+          "markdownDescription": "Enables the get_relays command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_relays command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-relays",
+          "markdownDescription": "Denies the get_relays command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-status",
+          "markdownDescription": "Enables the get_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-status",
+          "markdownDescription": "Denies the get_status command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the publish command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-publish",
+          "markdownDescription": "Enables the publish command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the publish command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-publish",
+          "markdownDescription": "Denies the publish command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the remove_relay command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-remove-relay",
+          "markdownDescription": "Enables the remove_relay command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the remove_relay command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-remove-relay",
+          "markdownDescription": "Denies the remove_relay command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the sync_all command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-sync-all",
+          "markdownDescription": "Enables the sync_all command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the sync_all command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-sync-all",
+          "markdownDescription": "Denies the sync_all command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for tauri-plugin-nostr-sync\n#### This default permission set includes:\n\n- `allow-publish`\n- `allow-fetch`\n- `allow-sync-all`\n- `allow-add-relay`\n- `allow-remove-relay`\n- `allow-get-relays`\n- `allow-get-pubkey`\n- `allow-get-status`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin"
+          "markdownDescription": "Default permissions for tauri-plugin-nostr-sync\n#### This default permission set includes:\n\n- `allow-publish`\n- `allow-fetch`\n- `allow-sync-all`\n- `allow-add-relay`\n- `allow-remove-relay`\n- `allow-get-relays`\n- `allow-get-pubkey`\n- `allow-get-status`"
         }
       ]
     }

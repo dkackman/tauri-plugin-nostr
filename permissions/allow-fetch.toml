@@ -1,0 +1,6 @@
+"$schema" = "../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-fetch"
+description = "Enables the fetch command."
+commands.allow = ["fetch"]

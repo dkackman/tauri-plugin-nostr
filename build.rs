@@ -1,4 +1,13 @@
-const COMMANDS: &[&str] = &[];
+const COMMANDS: &[&str] = &[
+    "publish",
+    "fetch",
+    "sync_all",
+    "add_relay",
+    "remove_relay",
+    "get_relays",
+    "get_pubkey",
+    "get_status",
+];
 
 fn main() {
     tauri_plugin::Builder::new(COMMANDS)

@@ -1,0 +1,6 @@
+"$schema" = "../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-relays"
+description = "Enables the get_relays command."
+commands.allow = ["get_relays"]

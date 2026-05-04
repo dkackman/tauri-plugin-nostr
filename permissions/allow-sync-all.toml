@@ -1,0 +1,6 @@
+"$schema" = "../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-sync-all"
+description = "Enables the sync_all command."
+commands.allow = ["sync_all"]

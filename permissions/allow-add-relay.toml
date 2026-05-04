@@ -1,0 +1,6 @@
+"$schema" = "../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-add-relay"
+description = "Enables the add_relay command."
+commands.allow = ["add_relay"]

@@ -1,0 +1,6 @@
+"$schema" = "../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-pubkey"
+description = "Enables the get_pubkey command."
+commands.allow = ["get_pubkey"]

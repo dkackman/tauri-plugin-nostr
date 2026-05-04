@@ -1,0 +1,6 @@
+"$schema" = "../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-remove-relay"
+description = "Enables the remove_relay command."
+commands.allow = ["remove_relay"]

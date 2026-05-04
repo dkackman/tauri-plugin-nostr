@@ -1,3 +1,12 @@
 [default]
-description = "Default permissions for the plugin"
-permissions = []
+description = "Default permissions for tauri-plugin-nostr-sync"
+permissions = [
+    "allow-publish",
+    "allow-fetch",
+    "allow-sync-all",
+    "allow-add-relay",
+    "allow-remove-relay",
+    "allow-get-relays",
+    "allow-get-pubkey",
+    "allow-get-status",
+]
