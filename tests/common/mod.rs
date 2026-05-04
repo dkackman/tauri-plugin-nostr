@@ -70,52 +70,70 @@ async fn handle_connection(stream: TcpStream, store: Store) {
     };
     let (mut write, mut read) = ws.split();
 
-    while let Some(Ok(Message::Text(text))) = read.next().await {
-        let msg: serde_json::Value = match serde_json::from_str(&text) {
-            Ok(v) => v,
-            Err(_) => continue,
-        };
-        let arr = match msg.as_array() {
-            Some(a) => a.clone(),
-            None => continue,
-        };
-        let kind = match arr.first().and_then(|v| v.as_str()) {
-            Some(k) => k.to_string(),
-            None => continue,
+    while let Some(msg) = read.next().await {
+        let msg = match msg {
+            Ok(m) => m,
+            Err(_) => break,
         };
 
-        match kind.as_str() {
-            "EVENT" => {
-                if let Some(event) = arr.get(1) {
-                    let event_id = event["id"].as_str().unwrap_or("").to_string();
-                    let key = dtag_key(event);
-                    store.lock().unwrap().insert(key, event.clone());
-                    let ok = serde_json::json!(["OK", event_id, true, ""]).to_string();
-                    let _ = write.send(Message::Text(ok)).await;
-                }
-            }
-            "REQ" => {
-                if let Some(sub_id) = arr.get(1).and_then(|v| v.as_str()) {
-                    let sub_id = sub_id.to_string();
-                    let filter = arr.get(2).cloned().unwrap_or(serde_json::json!({}));
-                    let events: Vec<serde_json::Value> = store
-                        .lock()
-                        .unwrap()
-                        .values()
-                        .filter(|e| matches_filter(e, &filter))
-                        .cloned()
-                        .collect();
+        match msg {
+            Message::Text(text) => {
+                let text = text.to_string();
+                let json: serde_json::Value = match serde_json::from_str(&text) {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                let arr = match json.as_array() {
+                    Some(a) => a.clone(),
+                    None => continue,
+                };
+                let kind = match arr.first().and_then(|v| v.as_str()) {
+                    Some(k) => k.to_string(),
+                    None => continue,
+                };
 
-                    for event in events {
-                        let msg =
-                            serde_json::json!(["EVENT", sub_id, event]).to_string();
-                        let _ = write.send(Message::Text(msg)).await;
+                match kind.as_str() {
+                    "EVENT" => {
+                        if let Some(event) = arr.get(1) {
+                            let event_id = event["id"].as_str().unwrap_or("").to_string();
+                            let key = dtag_key(event);
+                            store.lock().unwrap().insert(key, event.clone());
+                            let ok = serde_json::json!(["OK", event_id, true, ""]).to_string();
+                            let _ = write.send(Message::Text(ok.into())).await;
+                        }
                     }
-                    let eose = serde_json::json!(["EOSE", sub_id]).to_string();
-                    let _ = write.send(Message::Text(eose)).await;
+                    "REQ" => {
+                        if let Some(sub_id) = arr.get(1).and_then(|v| v.as_str()) {
+                            let sub_id = sub_id.to_string();
+                            let filter = arr.get(2).cloned().unwrap_or(serde_json::json!({}));
+                            let events: Vec<serde_json::Value> = store
+                                .lock()
+                                .unwrap()
+                                .values()
+                                .filter(|e| matches_filter(e, &filter))
+                                .cloned()
+                                .collect();
+
+                            for event in events {
+                                let msg =
+                                    serde_json::json!(["EVENT", sub_id, event]).to_string();
+                                let _ = write.send(Message::Text(msg.into())).await;
+                            }
+                            let eose = serde_json::json!(["EOSE", sub_id]).to_string();
+                            let _ = write.send(Message::Text(eose.into())).await;
+                        }
+                    }
+                    "CLOSE" => {}
+                    _ => {}
                 }
             }
-            "CLOSE" => {}
+            // Respond to WebSocket pings to keep the connection alive.
+            Message::Ping(data) => {
+                let _ = write.send(Message::Pong(data)).await;
+            }
+            // Close frame: exit the handler loop.
+            Message::Close(_) => break,
+            // Binary, Pong, Frame: ignore.
             _ => {}
         }
     }

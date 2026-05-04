@@ -60,6 +60,12 @@ impl NostrSyncState {
         Ok(())
     }
 
+    /// Wait for at least one relay to reach the Connected state, up to `timeout`.
+    /// Useful in tests and after `add_relay` when an immediate relay round-trip is needed.
+    pub async fn wait_for_connection(&self, timeout: Duration) {
+        self.client.wait_for_connection(timeout).await;
+    }
+
     pub async fn remove_relay(&self, url: &str) -> Result<()> {
         self.client.remove_relay(url).await?;
         Ok(())
