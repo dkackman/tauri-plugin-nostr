@@ -12,6 +12,7 @@ pub struct NostrSyncState {
     pub(crate) namespace: String,
     pub(crate) device_id: String,
     pub(crate) client: Client,
+    last_seen: tokio::sync::RwLock<std::collections::HashMap<String, Timestamp>>,
 }
 
 impl NostrSyncState {
@@ -23,6 +24,7 @@ impl NostrSyncState {
             namespace: namespace.to_string(),
             device_id: uuid::Uuid::new_v4().to_string(),
             client,
+            last_seen: tokio::sync::RwLock::new(std::collections::HashMap::new()),
         })
     }
 
@@ -180,6 +182,68 @@ impl NostrSyncState {
             }
         }
         Ok(results)
+    }
+
+    pub async fn poll(&self, categories: &[String]) -> Result<Vec<crate::FetchResult>> {
+        let signer = self.client.signer().await.map_err(|_| Error::SignerNotSet)?;
+        let pubkey = signer
+            .get_public_key()
+            .await
+            .map_err(|e| Error::DecryptionFailed(e.to_string()))?;
+
+        let mut updates = Vec::new();
+
+        for category in categories {
+            validate_category(category)?;
+            let filter = build_filter(pubkey, &self.namespace, category);
+            let events = self
+                .client
+                .fetch_events(filter, Duration::from_secs(10))
+                .await?;
+
+            if let Some(event) = events.first() {
+                let is_new = {
+                    let seen = self.last_seen.read().await;
+                    seen.get(category.as_str())
+                        .map_or(true, |&ts| event.created_at > ts)
+                };
+
+                if is_new {
+                    self.last_seen
+                        .write()
+                        .await
+                        .insert(category.clone(), event.created_at);
+
+                    let payload = decrypt_payload(&signer, &event.content).await?;
+
+                    let device_id = event
+                        .tags
+                        .iter()
+                        .find_map(|t| {
+                            let slice = t.as_slice();
+                            if slice.first().map(|s| s.as_str()) == Some("device_id") {
+                                slice.get(1).cloned()
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap_or_else(|| pubkey.to_hex());
+
+                    let updated_at =
+                        chrono::DateTime::from_timestamp(event.created_at.as_secs() as i64, 0)
+                            .unwrap_or_else(chrono::Utc::now);
+
+                    updates.push(crate::FetchResult {
+                        category: category.clone(),
+                        payload,
+                        updated_at,
+                        device_id,
+                    });
+                }
+            }
+        }
+
+        Ok(updates)
     }
 }
 

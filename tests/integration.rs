@@ -200,3 +200,137 @@ async fn sync_all_omits_categories_with_no_data() {
     assert_eq!(results[0].payload, serde_json::json!({"theme": "dark"}));
     relay.shutdown().await;
 }
+
+// ── poll tests ────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn poll_without_signer_returns_signer_not_set() {
+    let state = NostrSyncState::new("testapp").unwrap();
+    let result = state.poll(&["ui-settings".to_string()]).await;
+    assert!(matches!(result, Err(Error::SignerNotSet)));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn poll_returns_empty_when_no_events() {
+    let relay = common::MockRelay::start().await;
+    let state = NostrSyncState::new("testapp").unwrap();
+    state.add_relay(&relay.url()).await.unwrap();
+    state.set_signer(make_keys()).await.unwrap();
+    state
+        .wait_for_connection(std::time::Duration::from_secs(5))
+        .await;
+
+    let results = state.poll(&["ui-settings".to_string()]).await.unwrap();
+    assert!(results.is_empty());
+    relay.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn poll_returns_update_on_first_call() {
+    let relay = common::MockRelay::start().await;
+    let state = NostrSyncState::new("testapp").unwrap();
+    state.add_relay(&relay.url()).await.unwrap();
+    state.set_signer(make_keys()).await.unwrap();
+    state
+        .wait_for_connection(std::time::Duration::from_secs(5))
+        .await;
+
+    let payload = serde_json::json!({"theme": "dark"});
+    state.publish("ui-settings", &payload).await.unwrap();
+
+    let results = state.poll(&["ui-settings".to_string()]).await.unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].category, "ui-settings");
+    assert_eq!(results[0].payload, payload);
+    relay.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn poll_deduplicates_unchanged_events() {
+    let relay = common::MockRelay::start().await;
+    let state = NostrSyncState::new("testapp").unwrap();
+    state.add_relay(&relay.url()).await.unwrap();
+    state.set_signer(make_keys()).await.unwrap();
+    state
+        .wait_for_connection(std::time::Duration::from_secs(5))
+        .await;
+
+    let payload = serde_json::json!({"theme": "dark"});
+    state.publish("ui-settings", &payload).await.unwrap();
+
+    let first = state.poll(&["ui-settings".to_string()]).await.unwrap();
+    assert_eq!(first.len(), 1);
+
+    // Same event on relay — second poll must return empty
+    let second = state.poll(&["ui-settings".to_string()]).await.unwrap();
+    assert!(second.is_empty());
+    relay.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn poll_returns_update_after_republish() {
+    let relay = common::MockRelay::start().await;
+    let state = NostrSyncState::new("testapp").unwrap();
+    state.add_relay(&relay.url()).await.unwrap();
+    state.set_signer(make_keys()).await.unwrap();
+    state
+        .wait_for_connection(std::time::Duration::from_secs(5))
+        .await;
+
+    state
+        .publish("ui-settings", &serde_json::json!({"theme": "light"}))
+        .await
+        .unwrap();
+    let first = state.poll(&["ui-settings".to_string()]).await.unwrap();
+    assert_eq!(first.len(), 1);
+
+    // NIP-33 timestamps have second granularity; sleep 1s so the re-publish
+    // gets a strictly newer created_at and the relay replaces the old event.
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+    let new_payload = serde_json::json!({"theme": "dark"});
+    state.publish("ui-settings", &new_payload).await.unwrap();
+
+    let second = state.poll(&["ui-settings".to_string()]).await.unwrap();
+    assert_eq!(second.len(), 1);
+    assert_eq!(second[0].payload, new_payload);
+    relay.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn poll_with_multiple_categories_returns_only_changed() {
+    let relay = common::MockRelay::start().await;
+    let state = NostrSyncState::new("testapp").unwrap();
+    state.add_relay(&relay.url()).await.unwrap();
+    state.set_signer(make_keys()).await.unwrap();
+    state
+        .wait_for_connection(std::time::Duration::from_secs(5))
+        .await;
+
+    state
+        .publish("ui-settings", &serde_json::json!({"theme": "dark"}))
+        .await
+        .unwrap();
+    state
+        .publish("wallet", &serde_json::json!({"network": "mainnet"}))
+        .await
+        .unwrap();
+
+    let categories = vec!["ui-settings".to_string(), "wallet".to_string()];
+
+    // First poll — both categories are new
+    let first = state.poll(&categories).await.unwrap();
+    assert_eq!(first.len(), 2);
+
+    // Re-publish only wallet with a newer timestamp
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    let updated_wallet = serde_json::json!({"network": "testnet"});
+    state.publish("wallet", &updated_wallet).await.unwrap();
+
+    // Second poll — only wallet changed
+    let second = state.poll(&categories).await.unwrap();
+    assert_eq!(second.len(), 1);
+    assert_eq!(second[0].category, "wallet");
+    assert_eq!(second[0].payload, updated_wallet);
+    relay.shutdown().await;
+}
