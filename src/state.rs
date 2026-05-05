@@ -209,12 +209,12 @@ impl NostrSyncState {
                 };
 
                 if is_new {
+                    let payload = decrypt_payload(&signer, &event.content).await?;
+
                     self.last_seen
                         .write()
                         .await
                         .insert(category.clone(), event.created_at);
-
-                    let payload = decrypt_payload(&signer, &event.content).await?;
 
                     let device_id = event
                         .tags

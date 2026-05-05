@@ -3,6 +3,7 @@ description = "Default permissions for tauri-plugin-nostr-sync"
 permissions = [
     "allow-publish",
     "allow-fetch",
+    "allow-poll",
     "allow-sync-all",
     "allow-add-relay",
     "allow-remove-relay",
