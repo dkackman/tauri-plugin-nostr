@@ -16,7 +16,8 @@
     try {
       const result = await fetchSetting("display-setting");
       if (result) {
-        setting = result.payload;
+        setting.name = result.payload.name;
+        setting.color = result.payload.color;
         log("Fetched display-setting", "success");
       } else {
         log("No data for display-setting", "info");

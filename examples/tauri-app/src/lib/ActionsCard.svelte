@@ -9,7 +9,7 @@
     getPubkey,
   } from "tauri-plugin-nostr-sync-api";
 
-  let { setting, onSettingChange, log } = $props();
+  let { setting = { name: "", color: "" }, onSettingChange, log } = $props();
 
   async function handlePublish() {
     try {
