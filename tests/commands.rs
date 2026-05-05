@@ -62,3 +62,39 @@ async fn fetch_returns_none_when_no_events_exist() {
     assert!(result.is_none());
     relay.shutdown().await;
 }
+
+#[tokio::test]
+async fn poll_returns_signer_not_set_without_signer() {
+    let app = build_test_app();
+    let result = app
+        .nostr_sync()
+        .poll(&["ui-settings".to_string()])
+        .await;
+    assert!(matches!(
+        result,
+        Err(tauri_plugin_nostr_sync::Error::SignerNotSet)
+    ));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn poll_returns_empty_vec_when_no_events_exist() {
+    let relay = common::MockRelay::start().await;
+    let app = build_test_app();
+
+    app.nostr_sync().add_relay(&relay.url()).await.unwrap();
+    app.nostr_sync()
+        .set_signer(nostr_sdk::Keys::generate())
+        .await
+        .unwrap();
+    app.nostr_sync()
+        .wait_for_connection(std::time::Duration::from_secs(5))
+        .await;
+
+    let results = app
+        .nostr_sync()
+        .poll(&["ui-settings".to_string()])
+        .await
+        .unwrap();
+    assert!(results.is_empty());
+    relay.shutdown().await;
+}
