@@ -56,3 +56,9 @@ export async function getPubkey(): Promise<string | null> {
 export async function getStatus(): Promise<SyncStatus> {
   return invoke("plugin:tauri-plugin-nostr-sync|get_status");
 }
+
+export async function poll(categories: string[]): Promise<FetchResult[]> {
+  return invoke<FetchResult[]>("plugin:tauri-plugin-nostr-sync|poll", {
+    request: { categories },
+  });
+}

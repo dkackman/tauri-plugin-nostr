@@ -32,12 +32,18 @@ async function getPubkey() {
 async function getStatus() {
     return core.invoke("plugin:tauri-plugin-nostr-sync|get_status");
 }
+async function poll(categories) {
+    return core.invoke("plugin:tauri-plugin-nostr-sync|poll", {
+        request: { categories },
+    });
+}
 
 exports.addRelay = addRelay;
 exports.fetch = fetch;
 exports.getPubkey = getPubkey;
 exports.getRelays = getRelays;
 exports.getStatus = getStatus;
+exports.poll = poll;
 exports.publish = publish;
 exports.removeRelay = removeRelay;
 exports.syncAll = syncAll;

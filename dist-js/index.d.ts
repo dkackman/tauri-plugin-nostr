@@ -22,3 +22,4 @@ export declare function removeRelay(url: string): Promise<void>;
 export declare function getRelays(): Promise<RelayInfo[]>;
 export declare function getPubkey(): Promise<string | null>;
 export declare function getStatus(): Promise<SyncStatus>;
+export declare function poll(categories: string[]): Promise<FetchResult[]>;
