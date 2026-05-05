@@ -1,8 +1,8 @@
 use tauri::{AppHandle, Runtime};
 
 use crate::{
-    FetchRequest, FetchResult, PublishRequest, RelayInfo, Result, SyncAllRequest, SyncStatus,
-    TauriPluginNostrSyncExt,
+    FetchRequest, FetchResult, PollRequest, PublishRequest, RelayInfo, Result, SyncAllRequest,
+    SyncStatus, TauriPluginNostrSyncExt,
 };
 
 #[tauri::command]
@@ -51,4 +51,9 @@ pub async fn get_pubkey<R: Runtime>(app: AppHandle<R>) -> Result<Option<String>>
 #[tauri::command]
 pub async fn get_status<R: Runtime>(app: AppHandle<R>) -> Result<SyncStatus> {
     Ok(app.nostr_sync().status().await)
+}
+
+#[tauri::command]
+pub async fn poll<R: Runtime>(app: AppHandle<R>, request: PollRequest) -> Result<Vec<FetchResult>> {
+    app.nostr_sync().poll(&request.categories).await
 }

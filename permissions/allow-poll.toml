@@ -1,0 +1,6 @@
+"$schema" = "../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-poll"
+description = "Enables the poll command."
+commands.allow = ["poll"]

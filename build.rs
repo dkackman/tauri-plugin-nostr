@@ -7,6 +7,7 @@ const COMMANDS: &[&str] = &[
     "get_relays",
     "get_pubkey",
     "get_status",
+    "poll",
 ];
 
 fn main() {

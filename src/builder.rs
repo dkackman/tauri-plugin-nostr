@@ -41,6 +41,7 @@ impl PluginBuilder {
                 crate::commands::get_relays,
                 crate::commands::get_pubkey,
                 crate::commands::get_status,
+                crate::commands::poll,
             ])
             .setup(move |app, api| {
                 #[cfg(mobile)]
