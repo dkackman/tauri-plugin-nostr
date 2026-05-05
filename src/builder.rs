@@ -31,7 +31,7 @@ impl PluginBuilder {
         let relays = self.relays;
         let namespace = self.namespace;
 
-        tauri::plugin::Builder::<R>::new("tauri-plugin-nostr-sync")
+        tauri::plugin::Builder::<R>::new("nostr-sync")
             .invoke_handler(tauri::generate_handler![
                 crate::commands::publish,
                 crate::commands::fetch,
