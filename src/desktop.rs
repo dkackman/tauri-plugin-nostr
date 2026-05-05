@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle, Emitter, Runtime};
 
 use crate::{FetchResult, NostrSyncState, RelayInfo, Result, SyncStatus};
 
@@ -11,7 +11,7 @@ pub fn init<R: Runtime>(
 ) -> crate::Result<TauriPluginNostrSync<R>> {
     let state = Arc::new(NostrSyncState::new(namespace)?);
     let plugin = TauriPluginNostrSync {
-        _app: app.clone(),
+        app: app.clone(),
         pub_state: state,
     };
     // Relay connections are kicked off async; errors surface later via status().
@@ -25,7 +25,7 @@ pub fn init<R: Runtime>(
 }
 
 pub struct TauriPluginNostrSync<R: Runtime> {
-    _app: AppHandle<R>,
+    app: AppHandle<R>,
     pub(crate) pub_state: Arc<NostrSyncState>,
 }
 
@@ -72,5 +72,13 @@ impl<R: Runtime> TauriPluginNostrSync<R> {
 
     pub async fn wait_for_connection(&self, timeout: std::time::Duration) {
         self.pub_state.wait_for_connection(timeout).await
+    }
+
+    pub async fn poll(&self, categories: &[String]) -> Result<Vec<FetchResult>> {
+        let updates = self.pub_state.poll(categories).await?;
+        for update in &updates {
+            let _ = self.app.emit("nostr-sync://updated", update);
+        }
+        Ok(updates)
     }
 }
