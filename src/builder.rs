@@ -60,7 +60,7 @@ impl PluginBuilder {
             .setup(move |app, api| {
                 #[cfg(mobile)]
                 {
-                    let plugin = crate::mobile::init(app, api)?;
+                    let plugin = crate::mobile::init(app, api, relays, &namespace, &device_id)?;
                     app.manage(plugin);
                 }
                 #[cfg(desktop)]
