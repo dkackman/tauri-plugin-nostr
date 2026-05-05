@@ -13,6 +13,7 @@ export interface SyncStatus {
     ready: boolean;
     relayCount: number;
     connectedRelayCount: number;
+    deviceId: string;
 }
 export declare function publish(category: string, payload: unknown): Promise<void>;
 export declare function fetch(category: string): Promise<FetchResult | null>;

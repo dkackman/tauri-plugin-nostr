@@ -42,6 +42,7 @@ pub struct SyncStatus {
     pub ready: bool,
     pub relay_count: usize,
     pub connected_relay_count: usize,
+    pub device_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,6 +86,7 @@ mod tests {
             ready: false,
             relay_count: 2,
             connected_relay_count: 1,
+            device_id: "test-device".to_string(),
         };
         let json = serde_json::to_value(&status).unwrap();
         assert!(json.get("relayCount").is_some());

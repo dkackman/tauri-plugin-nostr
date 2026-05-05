@@ -17,6 +17,7 @@ export interface SyncStatus {
   ready: boolean;
   relayCount: number;
   connectedRelayCount: number;
+  deviceId: string;
 }
 
 export async function publish(category: string, payload: unknown): Promise<void> {

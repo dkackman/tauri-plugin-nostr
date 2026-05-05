@@ -55,6 +55,7 @@ impl NostrSyncState {
             ready: has_signer && connected_relay_count > 0,
             relay_count,
             connected_relay_count,
+            device_id: self.device_id.clone(),
         }
     }
 

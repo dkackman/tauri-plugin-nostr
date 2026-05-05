@@ -76,8 +76,8 @@
         style="font-size:10px; padding:2px 6px;"
         title={copyTooltip}
         onclick={copyNsec}
-        disabled={!nsecInput}
-      >⎘</button>
+        disabled={!nsecInput}>⎘</button
+      >
     </div>
 
     <div
@@ -87,9 +87,9 @@
       <strong style="color:#94a3b8;">What is this?</strong> The nsec is a Nostr private key that
       acts as both the signing key and the symmetric encryption secret. Any app instance that loads
       the same nsec can read and write the same encrypted sync data.<br /><br />
-      <strong style="color:#94a3b8;">In a real app</strong> this key would be derived from a master
-      secret (e.g. via a KDF from a user password or device key) and never shown to the user — the
-      plugin receives it after the host app unlocks its own credential store.
+      <strong style="color:#94a3b8;">In a real app</strong> this key would be derived from a master secret
+      (e.g. via a KDF from a user password or device key) and never shown to the user — the plugin receives
+      it after the host app unlocks its own credential store.
     </div>
 
     <div class="d-flex gap-1">

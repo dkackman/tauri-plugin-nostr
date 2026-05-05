@@ -1,12 +1,21 @@
 <script>
   import { publish, fetch as fetchSetting } from "tauri-plugin-nostr-sync-api";
 
-  let { setting = $bindable({ name: "My App Name", color: "#38bdf8" }), log } = $props();
+  let { darkMode = $bindable(false), onDarkModeChange, log } = $props();
+
+  async function handleToggle() {
+    try {
+      await publish("display-setting", { darkMode });
+      log(`Published: dark mode ${darkMode ? "on" : "off"}`, "success");
+    } catch (e) {
+      log(`Publish failed: ${e}`, "error");
+    }
+  }
 
   async function handlePublish() {
     try {
-      await publish("display-setting", { name: setting.name, color: setting.color });
-      log("Published display-setting", "success");
+      await publish("display-setting", { darkMode });
+      log(`Published: dark mode ${darkMode ? "on" : "off"}`, "success");
     } catch (e) {
       log(`Publish failed: ${e}`, "error");
     }
@@ -16,9 +25,8 @@
     try {
       const result = await fetchSetting("display-setting");
       if (result) {
-        setting.name = result.payload.name;
-        setting.color = result.payload.color;
-        log("Fetched display-setting", "success");
+        onDarkModeChange(result.payload.darkMode ?? false);
+        log(`Fetched: dark mode ${result.payload.darkMode ? "on" : "off"}`, "success");
       } else {
         log("No data for display-setting", "info");
       }
@@ -28,38 +36,26 @@
   }
 </script>
 
-<div class="card border-secondary mb-3" style="background:#1e293b;">
-  <div class="card-header py-1" style="background:#1e293b;">
+<div class="card mb-3">
+  <div class="card-header py-1">
     <small class="text-secondary text-uppercase" style="font-size:10px;">⚙️ Synced Setting</small>
   </div>
   <div class="card-body p-2">
-    <div class="d-flex align-items-center mb-2 gap-2">
-      <label
-        for="setting-name"
-        class="text-secondary mb-0"
-        style="font-size:11px; width:90px; flex-shrink:0;">Display Name</label
-      >
-      <input
-        id="setting-name"
-        class="form-control form-control-sm"
-        style="background:#0f172a; border-color:#334155; color:#94a3b8; font-size:11px;"
-        bind:value={setting.name}
-      />
-    </div>
-    <div class="d-flex align-items-center mb-3 gap-2">
-      <label
-        for="setting-color"
-        class="text-secondary mb-0"
-        style="font-size:11px; width:90px; flex-shrink:0;">Accent Color</label
-      >
-      <input
-        id="setting-color"
-        type="color"
-        class="form-control form-control-color form-control-sm p-0"
-        style="width:36px; height:28px; border-color:#334155;"
-        bind:value={setting.color}
-      />
-      <span class="text-secondary" style="font-size:10px;">{setting.color}</span>
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <label for="dark-mode-toggle" class="form-label mb-0" style="font-size:11px;">
+        Dark mode
+      </label>
+      <div class="form-check form-switch mb-0">
+        <input
+          id="dark-mode-toggle"
+          class="form-check-input"
+          type="checkbox"
+          role="switch"
+          bind:checked={darkMode}
+          oninput={handleToggle}
+          style="cursor:pointer;"
+        />
+      </div>
     </div>
     <div class="d-flex gap-1">
       <button

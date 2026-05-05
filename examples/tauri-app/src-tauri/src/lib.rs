@@ -1,6 +1,6 @@
 use nostr_sdk::{Keys, ToBech32};
 use serde::Serialize;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tauri_plugin_nostr_sync::TauriPluginNostrSyncExt;
 
 #[derive(Serialize)]

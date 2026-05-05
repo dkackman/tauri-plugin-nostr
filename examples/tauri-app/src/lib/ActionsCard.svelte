@@ -9,12 +9,12 @@
     getPubkey,
   } from "tauri-plugin-nostr-sync-api";
 
-  let { setting = { name: "", color: "" }, onSettingChange, log } = $props();
+  let { darkMode = false, onDarkModeChange, log } = $props();
 
   async function handlePublish() {
     try {
-      await publish("display-setting", { name: setting.name, color: setting.color });
-      log("Published display-setting", "success");
+      await publish("display-setting", { darkMode });
+      log(`Published: dark mode ${darkMode ? "on" : "off"}`, "success");
     } catch (e) {
       log(`Publish failed: ${e}`, "error");
     }
@@ -24,8 +24,11 @@
     try {
       const result = await fetchSetting("display-setting");
       if (result) {
-        onSettingChange(result.payload);
-        log("Fetched display-setting", "success");
+        onDarkModeChange(result.payload.darkMode ?? false);
+        log(
+          `Fetched display-setting: dark mode ${result.payload.darkMode ? "on" : "off"}`,
+          "success"
+        );
       } else {
         log("No data for display-setting", "info");
       }
@@ -38,7 +41,7 @@
     try {
       const results = await poll(["display-setting"]);
       if (results.length > 0) {
-        onSettingChange(results[0].payload);
+        onDarkModeChange(results[0].payload.darkMode ?? false);
       }
       log(`Poll: ${results.length} update(s)`, "success");
     } catch (e) {
@@ -50,7 +53,7 @@
     try {
       const results = await syncAll(["display-setting"]);
       if (results.length > 0) {
-        onSettingChange(results[0].payload);
+        onDarkModeChange(results[0].payload.darkMode ?? false);
       }
       log(`Sync all: ${results.length} result(s)`, "success");
     } catch (e) {
@@ -62,7 +65,7 @@
     try {
       const s = await getStatus();
       log(
-        `Status: ready=${s.ready} relays=${s.relayCount} connected=${s.connectedRelayCount}`,
+        `Status: ready=${s.ready} relays=${s.relayCount} connected=${s.connectedRelayCount} device=${s.deviceId.slice(0, 8)}...`,
         "info"
       );
     } catch (e) {
