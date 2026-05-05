@@ -32,6 +32,12 @@ pub struct SyncAllRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct PollRequest {
+    pub categories: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SyncStatus {
     pub ready: bool,
     pub relay_count: usize,
@@ -102,6 +108,13 @@ mod tests {
     fn sync_all_request_deserializes_categories() {
         let json = r#"{"categories":["ui-settings","wallet"]}"#;
         let req: SyncAllRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.categories, vec!["ui-settings", "wallet"]);
+    }
+
+    #[test]
+    fn poll_request_deserializes_categories() {
+        let json = r#"{"categories":["ui-settings","wallet"]}"#;
+        let req: PollRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.categories, vec!["ui-settings", "wallet"]);
     }
 }
