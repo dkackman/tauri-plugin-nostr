@@ -1,6 +1,6 @@
 use nostr_sdk::{Keys, ToBech32};
 use serde::Serialize;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tauri_plugin_nostr_sync::TauriPluginNostrSyncExt;
 
 #[derive(Serialize)]
@@ -42,6 +42,8 @@ async fn clear_sync_key(app: AppHandle) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(
+            // No .device_id() call → ephemeral UUID per process, sufficient for this demo.
+            // A real app would call .device_id(stable_device_id(&app)) after app setup.
             tauri_plugin_nostr_sync::Builder::new()
                 .relays(vec![
                     "wss://relay.damus.io".to_string(),

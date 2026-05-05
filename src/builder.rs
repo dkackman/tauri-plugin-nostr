@@ -3,6 +3,7 @@ use tauri::{plugin::TauriPlugin, Manager, Runtime};
 pub struct PluginBuilder {
     pub(crate) relays: Vec<String>,
     pub(crate) namespace: String,
+    pub(crate) device_id: String,
 }
 
 impl PluginBuilder {
@@ -10,6 +11,7 @@ impl PluginBuilder {
         Self {
             relays: Vec::new(),
             namespace: "default".to_string(),
+            device_id: uuid::Uuid::new_v4().to_string(),
         }
     }
 
@@ -23,6 +25,17 @@ impl PluginBuilder {
         self
     }
 
+    /// Override the device identifier stamped on published events.
+    ///
+    /// Defaults to a random UUID generated at process start (ephemeral). Supply a
+    /// stable, per-device value — e.g. a UUID persisted in the app's data directory,
+    /// a hardware serial, or a hash of the machine name — so that consumers can
+    /// reliably attribute events to a specific device across restarts.
+    pub fn device_id(mut self, id: impl Into<String>) -> Self {
+        self.device_id = id.into();
+        self
+    }
+
     pub fn build<R: Runtime>(self) -> TauriPlugin<R> {
         // Panic on invalid namespace — consistent with Tauri builder conventions.
         crate::state::validate_namespace(&self.namespace)
@@ -30,6 +43,7 @@ impl PluginBuilder {
 
         let relays = self.relays;
         let namespace = self.namespace;
+        let device_id = self.device_id;
 
         tauri::plugin::Builder::<R>::new("nostr-sync")
             .invoke_handler(tauri::generate_handler![
@@ -52,7 +66,7 @@ impl PluginBuilder {
                 #[cfg(desktop)]
                 {
                     let _ = &api;
-                    let plugin = crate::desktop::init(app, relays, &namespace)?;
+                    let plugin = crate::desktop::init(app, relays, &namespace, &device_id)?;
                     app.manage(plugin);
                 }
                 Ok(())
@@ -81,6 +95,20 @@ mod tests {
     fn defaults_to_empty_relays() {
         let b = PluginBuilder::new();
         assert!(b.relays.is_empty());
+    }
+
+    #[test]
+    fn defaults_to_ephemeral_device_id() {
+        let b = PluginBuilder::new();
+        assert!(!b.device_id.is_empty());
+        // Two builders get different ephemeral IDs.
+        assert_ne!(b.device_id, PluginBuilder::new().device_id);
+    }
+
+    #[test]
+    fn device_id_overrides_ephemeral() {
+        let b = PluginBuilder::new().device_id("my-stable-device");
+        assert_eq!(b.device_id, "my-stable-device");
     }
 
     #[test]

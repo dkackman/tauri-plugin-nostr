@@ -3,6 +3,7 @@
 
   let { pubkey = $bindable(""), log } = $props();
   let nsecInput = $state("");
+  let copyTooltip = $state("Copy to test in another instance");
 
   async function setKey() {
     try {
@@ -34,6 +35,17 @@
       log(`Clear failed: ${e}`, "error");
     }
   }
+
+  async function copyNsec() {
+    if (!nsecInput) return;
+    try {
+      await navigator.clipboard.writeText(nsecInput);
+      copyTooltip = "Copied!";
+      setTimeout(() => (copyTooltip = "Copy to test in another instance"), 2000);
+    } catch (e) {
+      log(`Copy failed: ${e}`, "error");
+    }
+  }
 </script>
 
 <div class="card border-secondary mb-3" style="background:#0f172a;">
@@ -47,12 +59,39 @@
     >
       pubkey: <span style="color:{pubkey ? '#38bdf8' : '#64748b'};">{pubkey || "not set"}</span>
     </div>
-    <input
-      class="form-control form-control-sm mb-2"
-      style="background:#334155; border-color:#4b5563; color:#94a3b8; font-size:11px;"
-      placeholder="nsec1... paste here"
-      bind:value={nsecInput}
-    />
+
+    <label for="nsec-input" class="text-secondary mb-1 d-block" style="font-size:10px;">
+      Secret key (nsec)
+    </label>
+    <div class="d-flex gap-1 mb-2">
+      <input
+        id="nsec-input"
+        class="form-control form-control-sm flex-fill"
+        style="background:#334155; border-color:#4b5563; color:#94a3b8; font-size:11px;"
+        placeholder="nsec1... paste here"
+        bind:value={nsecInput}
+      />
+      <button
+        class="btn btn-sm btn-outline-secondary"
+        style="font-size:10px; padding:2px 6px;"
+        title={copyTooltip}
+        onclick={copyNsec}
+        disabled={!nsecInput}
+      >⎘</button>
+    </div>
+
+    <div
+      class="mb-2 p-2 rounded"
+      style="background:#1e293b; border-left:2px solid #334155; font-size:10px; color:#64748b; line-height:1.5;"
+    >
+      <strong style="color:#94a3b8;">What is this?</strong> The nsec is a Nostr private key that
+      acts as both the signing key and the symmetric encryption secret. Any app instance that loads
+      the same nsec can read and write the same encrypted sync data.<br /><br />
+      <strong style="color:#94a3b8;">In a real app</strong> this key would be derived from a master
+      secret (e.g. via a KDF from a user password or device key) and never shown to the user — the
+      plugin receives it after the host app unlocks its own credential store.
+    </div>
+
     <div class="d-flex gap-1">
       <button class="btn btn-sm btn-secondary flex-fill" style="font-size:10px;" onclick={setKey}
         >Set Key</button

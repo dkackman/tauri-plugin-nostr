@@ -16,13 +16,13 @@ pub struct NostrSyncState {
 }
 
 impl NostrSyncState {
-    pub fn new(namespace: &str) -> Result<Self> {
+    pub fn new(namespace: &str, device_id: &str) -> Result<Self> {
         validate_namespace(namespace)?;
         let opts = ClientOptions::default().autoconnect(true);
         let client = Client::builder().opts(opts).build();
         Ok(Self {
             namespace: namespace.to_string(),
-            device_id: uuid::Uuid::new_v4().to_string(),
+            device_id: device_id.to_string(),
             client,
             last_seen: tokio::sync::RwLock::new(std::collections::HashMap::new()),
         })
@@ -360,7 +360,7 @@ mod tests {
 
     #[tokio::test]
     async fn sync_status_not_ready_without_signer() {
-        let state = NostrSyncState::new("testapp").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device").unwrap();
         let status = state.status().await;
         assert!(!status.ready);
     }
@@ -391,11 +391,11 @@ mod tests {
     #[test]
     fn new_rejects_invalid_namespace() {
         assert!(matches!(
-            NostrSyncState::new(""),
+            NostrSyncState::new("", "test-device"),
             Err(Error::InvalidNamespace(_))
         ));
         assert!(matches!(
-            NostrSyncState::new("a/b"),
+            NostrSyncState::new("a/b", "test-device"),
             Err(Error::InvalidNamespace(_))
         ));
     }
@@ -424,7 +424,7 @@ mod tests {
 
     #[tokio::test]
     async fn publish_with_slash_category_returns_invalid_category() {
-        let state = NostrSyncState::new("testapp").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device").unwrap();
         state.set_signer(nostr_sdk::Keys::generate()).await.unwrap();
         let result = state
             .publish("ui/settings", &serde_json::json!({"x": 1}))
@@ -434,7 +434,7 @@ mod tests {
 
     #[tokio::test]
     async fn fetch_with_slash_category_returns_invalid_category() {
-        let state = NostrSyncState::new("testapp").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device").unwrap();
         state.set_signer(nostr_sdk::Keys::generate()).await.unwrap();
         let result = state.fetch("ui/settings").await;
         assert!(matches!(result, Err(Error::InvalidCategory(_))));
@@ -442,7 +442,7 @@ mod tests {
 
     #[tokio::test]
     async fn clear_signer_prevents_publish() {
-        let state = NostrSyncState::new("testapp").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device").unwrap();
         state.set_signer(nostr_sdk::Keys::generate()).await.unwrap();
         state.clear_signer().await;
         let result = state
@@ -453,7 +453,7 @@ mod tests {
 
     #[tokio::test]
     async fn publish_without_signer_returns_signer_not_set() {
-        let state = NostrSyncState::new("testapp").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device").unwrap();
         let result = state
             .publish("ui-settings", &serde_json::json!({ "theme": "dark" }))
             .await;
@@ -462,20 +462,20 @@ mod tests {
 
     #[tokio::test]
     async fn fetch_without_signer_returns_signer_not_set() {
-        let state = NostrSyncState::new("testapp").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device").unwrap();
         let result = state.fetch("ui-settings").await;
         assert!(matches!(result, Err(Error::SignerNotSet)));
     }
 
     #[tokio::test]
     async fn pubkey_is_none_without_signer() {
-        let state = NostrSyncState::new("testapp").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device").unwrap();
         assert!(state.pubkey().await.is_none());
     }
 
     #[tokio::test]
     async fn sync_all_without_signer_returns_signer_not_set() {
-        let state = NostrSyncState::new("testapp").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device").unwrap();
         let categories = vec!["ui-settings".to_string(), "wallet".to_string()];
         let result = state.sync_all(&categories).await;
         assert!(matches!(result, Err(Error::SignerNotSet)));
@@ -483,7 +483,7 @@ mod tests {
 
     #[tokio::test]
     async fn sync_all_with_empty_categories_returns_empty_vec() {
-        let state = NostrSyncState::new("testapp").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device").unwrap();
         let keys = nostr_sdk::Keys::generate();
         state.set_signer(keys).await.unwrap();
         // No relay connected — sync_all with empty slice returns Ok([]) immediately
@@ -493,7 +493,7 @@ mod tests {
 
     #[tokio::test]
     async fn signer_lifecycle_exposes_then_hides_pubkey() {
-        let state = NostrSyncState::new("testapp").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device").unwrap();
         let keys = nostr_sdk::Keys::generate();
         let expected = keys.public_key();
 
