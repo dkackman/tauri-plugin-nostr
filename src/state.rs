@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use nostr_sdk::{
     Client, ClientOptions, EventBuilder, Filter, Kind, NostrSigner, PublicKey, RelayStatus, Tag,
+    Timestamp,
 };
 
 use crate::{Error, RelayInfo, Result, SyncStatus};
@@ -133,11 +134,7 @@ impl NostrSyncState {
             .await
             .map_err(|e| Error::DecryptionFailed(e.to_string()))?;
 
-        let dtag = build_dtag(&self.namespace, category);
-        let filter = Filter::new()
-            .kind(Kind::from(30078u16))
-            .author(pubkey)
-            .identifier(dtag);
+        let filter = build_filter(pubkey, &self.namespace, category);
 
         let events = self
             .client
@@ -234,6 +231,13 @@ async fn decrypt_payload(
 /// Constructs the NIP-33 d-tag value: `{namespace}/{category}/v1`
 pub(crate) fn build_dtag(namespace: &str, category: &str) -> String {
     format!("{}/{}/v1", namespace, category)
+}
+
+fn build_filter(pubkey: PublicKey, namespace: &str, category: &str) -> Filter {
+    Filter::new()
+        .kind(Kind::from(30078u16))
+        .author(pubkey)
+        .identifier(build_dtag(namespace, category))
 }
 
 /// Validates that a namespace is non-empty and contains no '/' characters.
