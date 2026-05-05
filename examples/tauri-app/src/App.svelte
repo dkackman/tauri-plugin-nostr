@@ -26,19 +26,13 @@
     setting = newSetting;
   }
 
-  onMount(() => {
-    let unlisten;
-    listen("nostr-sync://updated", (event) => {
+  onMount(async () => {
+    const unlisten = await listen("nostr-sync://updated", (event) => {
       const result = event.payload;
       log(`nostr-sync://updated ${JSON.stringify(result.payload)}`, "event");
       setting = result.payload;
-    }).then((fn) => {
-      unlisten = fn;
     });
-
-    return () => {
-      if (unlisten) unlisten();
-    };
+    return () => unlisten();
   });
 </script>
 
