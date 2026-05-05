@@ -6,6 +6,7 @@ Default permissions for tauri-plugin-nostr-sync
 
 - `allow-publish`
 - `allow-fetch`
+- `allow-poll`
 - `allow-sync-all`
 - `allow-add-relay`
 - `allow-remove-relay`
@@ -83,6 +84,19 @@ Enables the get_relays command.
 <td>
 
 Enables the get_status command.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`nostr-sync:allow-poll`
+
+</td>
+<td>
+
+Enables the poll command.
 
 </td>
 </tr>
@@ -252,6 +266,32 @@ Enables the get_status command without any pre-configured scope.
 <td>
 
 Denies the get_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`nostr-sync:allow-poll`
+
+</td>
+<td>
+
+Enables the poll command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`nostr-sync:deny-poll`
+
+</td>
+<td>
+
+Denies the poll command without any pre-configured scope.
 
 </td>
 </tr>

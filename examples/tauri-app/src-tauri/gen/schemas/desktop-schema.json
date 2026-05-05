@@ -2193,10 +2193,10 @@
           "markdownDescription": "Denies the unminimize command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for tauri-plugin-nostr-sync\n#### This default permission set includes:\n\n- `allow-publish`\n- `allow-fetch`\n- `allow-sync-all`\n- `allow-add-relay`\n- `allow-remove-relay`\n- `allow-get-relays`\n- `allow-get-pubkey`\n- `allow-get-status`",
+          "description": "Default permissions for tauri-plugin-nostr-sync\n#### This default permission set includes:\n\n- `allow-publish`\n- `allow-fetch`\n- `allow-poll`\n- `allow-sync-all`\n- `allow-add-relay`\n- `allow-remove-relay`\n- `allow-get-relays`\n- `allow-get-pubkey`\n- `allow-get-status`",
           "type": "string",
           "const": "nostr-sync:default",
-          "markdownDescription": "Default permissions for tauri-plugin-nostr-sync\n#### This default permission set includes:\n\n- `allow-publish`\n- `allow-fetch`\n- `allow-sync-all`\n- `allow-add-relay`\n- `allow-remove-relay`\n- `allow-get-relays`\n- `allow-get-pubkey`\n- `allow-get-status`"
+          "markdownDescription": "Default permissions for tauri-plugin-nostr-sync\n#### This default permission set includes:\n\n- `allow-publish`\n- `allow-fetch`\n- `allow-poll`\n- `allow-sync-all`\n- `allow-add-relay`\n- `allow-remove-relay`\n- `allow-get-relays`\n- `allow-get-pubkey`\n- `allow-get-status`"
         },
         {
           "description": "Enables the add_relay command without any pre-configured scope.",
@@ -2227,6 +2227,12 @@
           "type": "string",
           "const": "nostr-sync:allow-get-status",
           "markdownDescription": "Enables the get_status command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the poll command without any pre-configured scope.",
+          "type": "string",
+          "const": "nostr-sync:allow-poll",
+          "markdownDescription": "Enables the poll command without any pre-configured scope."
         },
         {
           "description": "Enables the publish command without any pre-configured scope.",
@@ -2275,6 +2281,12 @@
           "type": "string",
           "const": "nostr-sync:deny-get-status",
           "markdownDescription": "Denies the get_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the poll command without any pre-configured scope.",
+          "type": "string",
+          "const": "nostr-sync:deny-poll",
+          "markdownDescription": "Denies the poll command without any pre-configured scope."
         },
         {
           "description": "Denies the publish command without any pre-configured scope.",

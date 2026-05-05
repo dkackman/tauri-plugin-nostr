@@ -66,10 +66,7 @@ async fn fetch_returns_none_when_no_events_exist() {
 #[tokio::test]
 async fn poll_returns_signer_not_set_without_signer() {
     let app = build_test_app();
-    let result = app
-        .nostr_sync()
-        .poll(&["ui-settings".to_string()])
-        .await;
+    let result = app.nostr_sync().poll(&["ui-settings".to_string()]).await;
     assert!(matches!(
         result,
         Err(tauri_plugin_nostr_sync::Error::SignerNotSet)

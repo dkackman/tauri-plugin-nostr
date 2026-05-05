@@ -185,7 +185,11 @@ impl NostrSyncState {
     }
 
     pub async fn poll(&self, categories: &[String]) -> Result<Vec<crate::FetchResult>> {
-        let signer = self.client.signer().await.map_err(|_| Error::SignerNotSet)?;
+        let signer = self
+            .client
+            .signer()
+            .await
+            .map_err(|_| Error::SignerNotSet)?;
         let pubkey = signer
             .get_public_key()
             .await
