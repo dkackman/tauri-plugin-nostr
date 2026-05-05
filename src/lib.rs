@@ -14,6 +14,8 @@ mod models;
 mod state;
 
 pub use builder::PluginBuilder;
+/// Alias for `PluginBuilder` matching the spec's `tauri_plugin_nostr_sync::Builder::new()` usage.
+pub use builder::PluginBuilder as Builder;
 pub use error::{Error, Result};
 pub use state::NostrSyncState;
 

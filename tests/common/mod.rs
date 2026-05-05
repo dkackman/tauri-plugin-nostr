@@ -43,11 +43,7 @@ impl MockRelay {
     }
 }
 
-async fn run_relay(
-    listener: TcpListener,
-    store: Store,
-    mut shutdown_rx: oneshot::Receiver<()>,
-) {
+async fn run_relay(listener: TcpListener, store: Store, mut shutdown_rx: oneshot::Receiver<()>) {
     loop {
         tokio::select! {
             result = listener.accept() => {
@@ -115,8 +111,7 @@ async fn handle_connection(stream: TcpStream, store: Store) {
                                 .collect();
 
                             for event in events {
-                                let msg =
-                                    serde_json::json!(["EVENT", sub_id, event]).to_string();
+                                let msg = serde_json::json!(["EVENT", sub_id, event]).to_string();
                                 let _ = write.send(Message::Text(msg.into())).await;
                             }
                             let eose = serde_json::json!(["EOSE", sub_id]).to_string();

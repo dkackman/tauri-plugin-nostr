@@ -1,16 +1,15 @@
 use tauri::{AppHandle, Runtime};
 
 use crate::{
-    FetchRequest, FetchResult, PublishRequest, RelayInfo, Result, SyncAllRequest,
-    SyncStatus, TauriPluginNostrSyncExt,
+    FetchRequest, FetchResult, PublishRequest, RelayInfo, Result, SyncAllRequest, SyncStatus,
+    TauriPluginNostrSyncExt,
 };
 
 #[tauri::command]
-pub async fn publish<R: Runtime>(
-    app: AppHandle<R>,
-    request: PublishRequest,
-) -> Result<()> {
-    app.nostr_sync().publish(&request.category, &request.payload).await
+pub async fn publish<R: Runtime>(app: AppHandle<R>, request: PublishRequest) -> Result<()> {
+    app.nostr_sync()
+        .publish(&request.category, &request.payload)
+        .await
 }
 
 #[tauri::command]

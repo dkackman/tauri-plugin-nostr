@@ -69,4 +69,8 @@ impl<R: Runtime> TauriPluginNostrSync<R> {
     pub async fn sync_all(&self, categories: &[String]) -> Result<Vec<FetchResult>> {
         self.pub_state.sync_all(categories).await
     }
+
+    pub async fn wait_for_connection(&self, timeout: std::time::Duration) {
+        self.pub_state.wait_for_connection(timeout).await
+    }
 }

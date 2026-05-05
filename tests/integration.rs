@@ -114,12 +114,67 @@ async fn sync_all_returns_all_fetched_categories() {
         .wait_for_connection(std::time::Duration::from_secs(5))
         .await;
 
-    state.publish("ui-settings", &serde_json::json!({"theme": "dark"})).await.unwrap();
-    state.publish("wallet", &serde_json::json!({"network": "mainnet"})).await.unwrap();
+    state
+        .publish("ui-settings", &serde_json::json!({"theme": "dark"}))
+        .await
+        .unwrap();
+    state
+        .publish("wallet", &serde_json::json!({"network": "mainnet"}))
+        .await
+        .unwrap();
 
     let categories = vec!["ui-settings".to_string(), "wallet".to_string()];
     let results = state.sync_all(&categories).await.unwrap();
     assert_eq!(results.len(), 2);
+    relay.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn sequential_publishes_to_same_category_returns_latest() {
+    let relay = common::MockRelay::start().await;
+    let state = NostrSyncState::new("testapp").unwrap();
+    state.add_relay(&relay.url()).await.unwrap();
+    state.set_signer(make_keys()).await.unwrap();
+    state
+        .wait_for_connection(std::time::Duration::from_secs(5))
+        .await;
+
+    let first = serde_json::json!({"theme": "light"});
+    let second = serde_json::json!({"theme": "dark"});
+    state.publish("ui-settings", &first).await.unwrap();
+    state.publish("ui-settings", &second).await.unwrap();
+
+    // NIP-33 last-write-wins: the relay retains only the most recent event per d-tag.
+    let result = state.fetch("ui-settings").await.unwrap();
+    assert_eq!(result.unwrap().payload, second);
+    relay.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn sync_all_returns_correct_payloads_per_category() {
+    let relay = common::MockRelay::start().await;
+    let state = NostrSyncState::new("testapp").unwrap();
+    state.add_relay(&relay.url()).await.unwrap();
+    state.set_signer(make_keys()).await.unwrap();
+    state
+        .wait_for_connection(std::time::Duration::from_secs(5))
+        .await;
+
+    let ui_payload = serde_json::json!({"theme": "dark"});
+    let wallet_payload = serde_json::json!({"network": "mainnet"});
+    state.publish("ui-settings", &ui_payload).await.unwrap();
+    state.publish("wallet", &wallet_payload).await.unwrap();
+
+    let categories = vec!["ui-settings".to_string(), "wallet".to_string()];
+    let mut results = state.sync_all(&categories).await.unwrap();
+    assert_eq!(results.len(), 2);
+
+    // Sort by category so assertion order is deterministic.
+    results.sort_by(|a, b| a.category.cmp(&b.category));
+    assert_eq!(results[0].category, "ui-settings");
+    assert_eq!(results[0].payload, ui_payload);
+    assert_eq!(results[1].category, "wallet");
+    assert_eq!(results[1].payload, wallet_payload);
     relay.shutdown().await;
 }
 
@@ -133,7 +188,10 @@ async fn sync_all_omits_categories_with_no_data() {
         .wait_for_connection(std::time::Duration::from_secs(5))
         .await;
 
-    state.publish("ui-settings", &serde_json::json!({"theme": "dark"})).await.unwrap();
+    state
+        .publish("ui-settings", &serde_json::json!({"theme": "dark"}))
+        .await
+        .unwrap();
     // "wallet" is never published
 
     let categories = vec!["ui-settings".to_string(), "wallet".to_string()];

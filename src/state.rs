@@ -78,12 +78,13 @@ impl NostrSyncState {
             .map(|(url, relay)| RelayInfo {
                 url: url.to_string(),
                 connected: matches!(relay.status(), RelayStatus::Connected),
-                last_seen: None,
+                last_seen: None, // TODO: populate from relay stats when nostr-sdk exposes last_event_at
             })
             .collect()
     }
 
     pub async fn publish(&self, category: &str, payload: &serde_json::Value) -> Result<()> {
+        validate_category(category)?;
         let signer = self
             .client
             .signer()
@@ -120,6 +121,7 @@ impl NostrSyncState {
     }
 
     pub async fn fetch(&self, category: &str) -> Result<Option<crate::FetchResult>> {
+        validate_category(category)?;
         let signer = self
             .client
             .signer()
@@ -236,11 +238,18 @@ pub(crate) fn build_dtag(namespace: &str, category: &str) -> String {
 
 /// Validates that a namespace is non-empty and contains no '/' characters.
 pub(crate) fn validate_namespace(namespace: &str) -> Result<()> {
-    if namespace.is_empty() {
+    if namespace.is_empty() || namespace.contains('/') {
         return Err(Error::InvalidNamespace(namespace.to_string()));
     }
-    if namespace.contains('/') {
-        return Err(Error::InvalidNamespace(namespace.to_string()));
+    Ok(())
+}
+
+/// Validates that a category is non-empty and contains no '/' characters.
+/// A slash in the category would silently produce an extra d-tag path segment,
+/// causing publish/fetch to operate on different identifiers.
+fn validate_category(category: &str) -> Result<()> {
+    if category.is_empty() || category.contains('/') {
+        return Err(Error::InvalidCategory(category.to_string()));
     }
     Ok(())
 }
@@ -317,6 +326,57 @@ mod tests {
             NostrSyncState::new("a/b"),
             Err(Error::InvalidNamespace(_))
         ));
+    }
+
+    #[test]
+    fn category_rejects_empty_string() {
+        assert!(matches!(
+            validate_category(""),
+            Err(Error::InvalidCategory(_))
+        ));
+    }
+
+    #[test]
+    fn category_rejects_slash() {
+        assert!(matches!(
+            validate_category("ui/settings"),
+            Err(Error::InvalidCategory(_))
+        ));
+    }
+
+    #[test]
+    fn category_accepts_valid_identifier() {
+        assert!(validate_category("ui-settings").is_ok());
+        assert!(validate_category("wallet").is_ok());
+    }
+
+    #[tokio::test]
+    async fn publish_with_slash_category_returns_invalid_category() {
+        let state = NostrSyncState::new("testapp").unwrap();
+        state.set_signer(nostr_sdk::Keys::generate()).await.unwrap();
+        let result = state
+            .publish("ui/settings", &serde_json::json!({"x": 1}))
+            .await;
+        assert!(matches!(result, Err(Error::InvalidCategory(_))));
+    }
+
+    #[tokio::test]
+    async fn fetch_with_slash_category_returns_invalid_category() {
+        let state = NostrSyncState::new("testapp").unwrap();
+        state.set_signer(nostr_sdk::Keys::generate()).await.unwrap();
+        let result = state.fetch("ui/settings").await;
+        assert!(matches!(result, Err(Error::InvalidCategory(_))));
+    }
+
+    #[tokio::test]
+    async fn clear_signer_prevents_publish() {
+        let state = NostrSyncState::new("testapp").unwrap();
+        state.set_signer(nostr_sdk::Keys::generate()).await.unwrap();
+        state.clear_signer().await;
+        let result = state
+            .publish("ui-settings", &serde_json::json!({"x": 1}))
+            .await;
+        assert!(matches!(result, Err(Error::SignerNotSet)));
     }
 
     #[tokio::test]

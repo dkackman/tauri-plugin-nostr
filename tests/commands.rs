@@ -54,7 +54,9 @@ async fn fetch_returns_none_when_no_events_exist() {
         .set_signer(nostr_sdk::Keys::generate())
         .await
         .unwrap();
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    app.nostr_sync()
+        .wait_for_connection(std::time::Duration::from_secs(5))
+        .await;
 
     let result = app.nostr_sync().fetch("ui-settings").await.unwrap();
     assert!(result.is_none());

@@ -28,6 +28,9 @@ pub enum Error {
     #[error("invalid namespace '{0}': must be non-empty and contain no '/' characters")]
     InvalidNamespace(String),
 
+    #[error("invalid category '{0}': must be non-empty and contain no '/' characters")]
+    InvalidCategory(String),
+
     #[error("no relays accepted the event")]
     NoRelaysAccepted,
 

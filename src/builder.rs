@@ -90,8 +90,7 @@ mod tests {
 
     #[test]
     fn relays_stores_provided_urls() {
-        let b = PluginBuilder::new()
-            .relays(vec!["wss://relay.damus.io", "wss://nos.lol"]);
+        let b = PluginBuilder::new().relays(vec!["wss://relay.damus.io", "wss://nos.lol"]);
         assert_eq!(b.relays, vec!["wss://relay.damus.io", "wss://nos.lol"]);
     }
 }
