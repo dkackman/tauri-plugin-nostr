@@ -34,16 +34,18 @@
   </div>
   <div class="card-body p-2">
     <div class="d-flex align-items-center mb-2 gap-2">
-      <label class="text-secondary mb-0" style="font-size:11px; width:90px; flex-shrink:0;">Display Name</label>
+      <label for="setting-name" class="text-secondary mb-0" style="font-size:11px; width:90px; flex-shrink:0;">Display Name</label>
       <input
+        id="setting-name"
         class="form-control form-control-sm"
         style="background:#0f172a; border-color:#334155; color:#94a3b8; font-size:11px;"
         bind:value={setting.name}
       />
     </div>
     <div class="d-flex align-items-center mb-3 gap-2">
-      <label class="text-secondary mb-0" style="font-size:11px; width:90px; flex-shrink:0;">Accent Color</label>
+      <label for="setting-color" class="text-secondary mb-0" style="font-size:11px; width:90px; flex-shrink:0;">Accent Color</label>
       <input
+        id="setting-color"
         type="color"
         class="form-control form-control-color form-control-sm p-0"
         style="width:36px; height:28px; border-color:#334155;"
