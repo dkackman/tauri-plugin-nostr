@@ -41,7 +41,10 @@
     <small class="text-secondary text-uppercase" style="font-size:10px;">🔑 Identity</small>
   </div>
   <div class="card-body p-2">
-    <div class="mb-2 p-1 rounded" style="background:#1e293b; font-size:11px; font-family:monospace; color:#94a3b8;">
+    <div
+      class="mb-2 p-1 rounded"
+      style="background:#1e293b; font-size:11px; font-family:monospace; color:#94a3b8;"
+    >
       pubkey: <span style="color:{pubkey ? '#38bdf8' : '#64748b'};">{pubkey || "not set"}</span>
     </div>
     <input
@@ -51,9 +54,17 @@
       bind:value={nsecInput}
     />
     <div class="d-flex gap-1">
-      <button class="btn btn-sm btn-secondary flex-fill" style="font-size:10px;" onclick={setKey}>Set Key</button>
-      <button class="btn btn-sm btn-secondary flex-fill" style="font-size:10px;" onclick={generateKey}>Generate</button>
-      <button class="btn btn-sm btn-danger flex-fill" style="font-size:10px;" onclick={clearKey}>Clear</button>
+      <button class="btn btn-sm btn-secondary flex-fill" style="font-size:10px;" onclick={setKey}
+        >Set Key</button
+      >
+      <button
+        class="btn btn-sm btn-secondary flex-fill"
+        style="font-size:10px;"
+        onclick={generateKey}>Generate</button
+      >
+      <button class="btn btn-sm btn-danger flex-fill" style="font-size:10px;" onclick={clearKey}
+        >Clear</button
+      >
     </div>
   </div>
 </div>

@@ -34,7 +34,11 @@
   </div>
   <div class="card-body p-2">
     <div class="d-flex align-items-center mb-2 gap-2">
-      <label for="setting-name" class="text-secondary mb-0" style="font-size:11px; width:90px; flex-shrink:0;">Display Name</label>
+      <label
+        for="setting-name"
+        class="text-secondary mb-0"
+        style="font-size:11px; width:90px; flex-shrink:0;">Display Name</label
+      >
       <input
         id="setting-name"
         class="form-control form-control-sm"
@@ -43,7 +47,11 @@
       />
     </div>
     <div class="d-flex align-items-center mb-3 gap-2">
-      <label for="setting-color" class="text-secondary mb-0" style="font-size:11px; width:90px; flex-shrink:0;">Accent Color</label>
+      <label
+        for="setting-color"
+        class="text-secondary mb-0"
+        style="font-size:11px; width:90px; flex-shrink:0;">Accent Color</label
+      >
       <input
         id="setting-color"
         type="color"
@@ -54,8 +62,16 @@
       <span class="text-secondary" style="font-size:10px;">{setting.color}</span>
     </div>
     <div class="d-flex gap-1">
-      <button class="btn btn-sm btn-secondary flex-fill" style="font-size:10px;" onclick={handlePublish}>Publish</button>
-      <button class="btn btn-sm btn-secondary flex-fill" style="font-size:10px;" onclick={handleFetch}>Fetch</button>
+      <button
+        class="btn btn-sm btn-secondary flex-fill"
+        style="font-size:10px;"
+        onclick={handlePublish}>Publish</button
+      >
+      <button
+        class="btn btn-sm btn-secondary flex-fill"
+        style="font-size:10px;"
+        onclick={handleFetch}>Fetch</button
+      >
     </div>
   </div>
 </div>

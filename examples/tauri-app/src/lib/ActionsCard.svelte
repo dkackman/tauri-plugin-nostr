@@ -61,7 +61,10 @@
   async function handleGetStatus() {
     try {
       const s = await getStatus();
-      log(`Status: ready=${s.ready} relays=${s.relayCount} connected=${s.connectedRelayCount}`, "info");
+      log(
+        `Status: ready=${s.ready} relays=${s.relayCount} connected=${s.connectedRelayCount}`,
+        "info"
+      );
     } catch (e) {
       log(`Get status failed: ${e}`, "error");
     }
@@ -92,13 +95,33 @@
     <small class="text-secondary text-uppercase" style="font-size:10px;">⚡ Actions</small>
   </div>
   <div class="card-body p-2 d-flex flex-column gap-1">
-    <button class="btn btn-sm btn-secondary w-100" style="font-size:10px;" onclick={handlePublish}>Publish Setting</button>
-    <button class="btn btn-sm btn-secondary w-100" style="font-size:10px;" onclick={handleFetch}>Fetch Setting</button>
-    <button class="btn btn-sm btn-secondary w-100" style="font-size:10px;" onclick={handlePoll}>Poll for Updates</button>
-    <button class="btn btn-sm btn-secondary w-100" style="font-size:10px;" onclick={handleSyncAll}>Sync All</button>
+    <button class="btn btn-sm btn-secondary w-100" style="font-size:10px;" onclick={handlePublish}
+      >Publish Setting</button
+    >
+    <button class="btn btn-sm btn-secondary w-100" style="font-size:10px;" onclick={handleFetch}
+      >Fetch Setting</button
+    >
+    <button class="btn btn-sm btn-secondary w-100" style="font-size:10px;" onclick={handlePoll}
+      >Poll for Updates</button
+    >
+    <button class="btn btn-sm btn-secondary w-100" style="font-size:10px;" onclick={handleSyncAll}
+      >Sync All</button
+    >
     <hr class="border-secondary my-1" />
-    <button class="btn btn-sm btn-outline-secondary w-100" style="font-size:10px;" onclick={handleGetStatus}>Get Status</button>
-    <button class="btn btn-sm btn-outline-secondary w-100" style="font-size:10px;" onclick={handleGetRelays}>Get Relays</button>
-    <button class="btn btn-sm btn-outline-secondary w-100" style="font-size:10px;" onclick={handleGetPubkey}>Get Pubkey</button>
+    <button
+      class="btn btn-sm btn-outline-secondary w-100"
+      style="font-size:10px;"
+      onclick={handleGetStatus}>Get Status</button
+    >
+    <button
+      class="btn btn-sm btn-outline-secondary w-100"
+      style="font-size:10px;"
+      onclick={handleGetRelays}>Get Relays</button
+    >
+    <button
+      class="btn btn-sm btn-outline-secondary w-100"
+      style="font-size:10px;"
+      onclick={handleGetPubkey}>Get Pubkey</button
+    >
   </div>
 </div>

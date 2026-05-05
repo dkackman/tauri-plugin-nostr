@@ -36,23 +36,36 @@
   });
 </script>
 
-<div class="container-fluid vh-100 d-flex flex-column p-0" style="background:#0f172a; color:#94a3b8;">
+<div
+  class="container-fluid vh-100 d-flex flex-column p-0"
+  style="background:#0f172a; color:#94a3b8;"
+>
   <div class="px-3 py-2 border-bottom border-secondary" style="background:#1e293b;">
-    <span style="font-size:13px; font-family:monospace; color:#38bdf8;">tauri-plugin-nostr-sync — Test App</span>
+    <span style="font-size:13px; font-family:monospace; color:#38bdf8;"
+      >tauri-plugin-nostr-sync — Test App</span
+    >
   </div>
 
   <div class="d-flex flex-grow-1 overflow-hidden">
     <!-- Left column -->
-    <div class="d-flex flex-column p-3 border-end border-secondary overflow-auto" style="width:300px; flex-shrink:0; background:#1e293b;">
-      <IdentityCard bind:pubkey={pubkey} {log} />
+    <div
+      class="d-flex flex-column p-3 border-end border-secondary overflow-auto"
+      style="width:300px; flex-shrink:0; background:#1e293b;"
+    >
+      <IdentityCard bind:pubkey {log} />
       <RelayCard {log} />
       <ActionsCard {setting} onSettingChange={handleSettingChange} {log} />
     </div>
 
     <!-- Right column -->
     <div class="d-flex flex-column flex-grow-1 p-3 overflow-hidden">
-      <SettingCard bind:setting={setting} {log} />
-      <ConsoleLog {entries} onClear={() => { entries = []; }} />
+      <SettingCard bind:setting {log} />
+      <ConsoleLog
+        {entries}
+        onClear={() => {
+          entries = [];
+        }}
+      />
     </div>
   </div>
 </div>

@@ -19,7 +19,7 @@
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",
     "bootstrap": "^5.3.3",
-    "tauri-plugin-nostr-sync-api": "file:../../"
+    "tauri-plugin-nostr-sync-api": "workspace:*"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.0.0",

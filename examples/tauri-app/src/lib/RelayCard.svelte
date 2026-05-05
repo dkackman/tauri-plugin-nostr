@@ -50,14 +50,18 @@
       <div class="d-flex align-items-center mb-1">
         <span
           class="rounded-circle me-2 flex-shrink-0"
-          style="width:8px;height:8px;display:inline-block;background:{relay.connected ? '#22c55e' : '#f59e0b'};"
+          style="width:8px;height:8px;display:inline-block;background:{relay.connected
+            ? '#22c55e'
+            : '#f59e0b'};"
         ></span>
-        <span class="text-secondary flex-fill text-truncate" style="font-size:10px;">{relay.url}</span>
+        <span class="text-secondary flex-fill text-truncate" style="font-size:10px;"
+          >{relay.url}</span
+        >
         <button
           class="btn btn-link btn-sm p-0 ms-1 text-danger"
           style="font-size:12px; line-height:1;"
-          onclick={() => handleRemove(relay.url)}
-        >✕</button>
+          onclick={() => handleRemove(relay.url)}>✕</button
+        >
       </div>
     {/each}
     <div class="d-flex gap-1 mt-2">
@@ -66,9 +70,13 @@
         style="background:#1e293b; border-color:#334155; color:#94a3b8; font-size:10px;"
         placeholder="wss://..."
         bind:value={newUrl}
-        onkeydown={(e) => { if (e.key === "Enter") handleAdd(); }}
+        onkeydown={(e) => {
+          if (e.key === "Enter") handleAdd();
+        }}
       />
-      <button class="btn btn-sm btn-secondary" style="font-size:10px;" onclick={handleAdd}>Add</button>
+      <button class="btn btn-sm btn-secondary" style="font-size:10px;" onclick={handleAdd}
+        >Add</button
+      >
     </div>
   </div>
 </div>

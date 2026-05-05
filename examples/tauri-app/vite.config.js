@@ -10,6 +10,11 @@ export default defineConfig({
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   // prevent Vite from obscuring rust errors
   clearScreen: false,
+  // Exclude workspace plugin so Vite never caches a stale pre-bundle when dist-js is rebuilt.
+  // Combined with workspace:* in package.json this ensures Vite always reads the live source.
+  optimizeDeps: {
+    exclude: ['tauri-plugin-nostr-sync-api'],
+  },
   // tauri expects a fixed port, fail if that port is not available
   server: {
     host: host || false,
