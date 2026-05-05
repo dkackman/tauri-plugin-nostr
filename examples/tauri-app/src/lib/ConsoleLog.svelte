@@ -22,7 +22,7 @@
     <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:10px;" onclick={onClear}>Clear</button>
   </div>
   <div class="card-body p-2 overflow-auto flex-grow-1" style="background:#0f172a; font-family:monospace; font-size:11px;">
-    {#each entries as entry}
+    {#each entries as entry, i (i)}
       <div style="color:{colorFor(entry.level)}; margin-bottom:2px;">
         {entry.timestamp} {symbolFor(entry.level)} {entry.message}
       </div>

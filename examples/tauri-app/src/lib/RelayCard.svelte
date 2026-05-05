@@ -46,7 +46,7 @@
     <small class="text-secondary text-uppercase" style="font-size:10px;">📡 Relays</small>
   </div>
   <div class="card-body p-2">
-    {#each relays as relay}
+    {#each relays as relay (relay.url)}
       <div class="d-flex align-items-center mb-1">
         <span
           class="rounded-circle me-2 flex-shrink-0"
