@@ -13,7 +13,7 @@ Pre-1.0 and under active development. **Phase 1** (Rust state machine) and **Pha
 
 ## How it works
 
-- State is published as [NIP-33](https://github.com/nostr-protocol/nips/blob/master/33.md) parameterized replaceable events (kind `30078`) so relays automatically retain only the latest value per category.
+- State is published as [NIP-78](https://github.com/nostr-protocol/nips/blob/master/78.md) arbitrary custom app data (kind `30078`), which uses [NIP-33](https://github.com/nostr-protocol/nips/blob/master/33.md) parameterized replaceable events so relays automatically retain only the latest value per category.
 - Payloads are encrypted with [NIP-44](https://github.com/nostr-protocol/nips/blob/master/44.md) before leaving the device. Plaintext never touches a relay.
 - A signing identity is injected at runtime (e.g. after wallet unlock) via the `NostrSigner` trait — the plugin never holds raw key bytes. Publish calls before injection return `SignerNotSet`.
 - Call `poll()` periodically to check for remote updates; new results are returned and also emitted as `nostr-sync://updated` Tauri events.

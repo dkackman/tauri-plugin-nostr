@@ -307,7 +307,7 @@ async fn decrypt_payload(
     serde_json::from_str(&json).map_err(|e| Error::DecryptionFailed(e.to_string()))
 }
 
-/// Constructs the NIP-33 d-tag value: `{namespace}/{category}/v1`
+/// Constructs the NIP-78 d-tag value: `{namespace}/{category}/v1`
 pub(crate) fn build_dtag(namespace: &str, category: &str) -> String {
     format!("{}/{}/v1", namespace, category)
 }

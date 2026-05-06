@@ -27,7 +27,7 @@ Any Tauri app (desktop or mobile) that needs to sync named categories of state a
 
 | Concern | Choice |
 |---|---|
-| Event kind | NIP-33 parameterized replaceable events, kind `30078` |
+| Event kind | NIP-78 arbitrary custom app data, kind `30078` (parameterized replaceable via NIP-33) |
 | Encryption | NIP-44 |
 | d-tag format | `{namespace}/{category}/v1` e.g. `sage/ui-settings/v1` |
 | Relay protocol | Standard NIP-01 WebSocket |
@@ -237,7 +237,7 @@ The plugin relies on `nostr_sdk::Client` for relay pool management, signer stora
 2. Plugin retrieves the signer from the client → `Error::SignerNotSet` if absent
 3. Plugin serializes payload to JSON; rejects if > 64KB (`Error::PayloadTooLarge`)
 4. Plugin NIP-44-encrypts the JSON to its own pubkey
-5. Plugin constructs NIP-33 event with d-tag `{namespace}/{category}/v1` and a `device_id` tag; if `expiration` is provided, appends a NIP-40 `expiration` tag
+5. Plugin constructs a NIP-78 kind `30078` event with d-tag `{namespace}/{category}/v1` and a `device_id` tag; if `expiration` is provided, appends a NIP-40 `expiration` tag
 6. Plugin signs the event via the signer
 7. Plugin calls `client.send_event(event)`; the SDK broadcasts to all WRITE relays
 8. If `Output.success` is non-empty (at least one relay accepted) → return `Ok(())`
@@ -324,7 +324,7 @@ A lightweight option: the `nostr-relay` crate or a simple `tokio-tungstenite` ec
 - Received event is decryptable with the same keypair
 - Received event with older `created_at` is discarded by the receive subscription
 - Received event with newer `created_at` fires the update callback
-- Two sequential publishes to the same category: relay retains only the latest (NIP-33 behavior)
+- Two sequential publishes to the same category: relay retains only the latest (NIP-78/NIP-33 behavior)
 - `syncAll(categories)` fetches latest events for the supplied list and returns them
 - Publish with all relays unreachable → returns `Err`; the caller can retry at its discretion
 - Multi-relay: publish succeeds if at least one of three relays accepts
