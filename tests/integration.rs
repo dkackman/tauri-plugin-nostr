@@ -12,7 +12,7 @@ fn make_keys() -> nostr_sdk::Keys {
 async fn publish_without_signer_returns_signer_not_set() {
     let state = NostrSyncState::new("testapp", "test-device").unwrap();
     let result = state
-        .publish("ui-settings", &serde_json::json!({"x": 1}))
+        .publish("ui-settings", &serde_json::json!({"x": 1}), None)
         .await;
     assert!(matches!(result, Err(Error::SignerNotSet)));
 }
@@ -40,7 +40,7 @@ async fn payload_at_64kb_limit_accepted() {
     let big = "x".repeat(64 * 1024 - 2);
     let payload = serde_json::json!(big);
     // publish will fail at send_event (no relay), but the size check passes first
-    let result = state.publish("big", &payload).await;
+    let result = state.publish("big", &payload, None).await;
     assert!(!matches!(result, Err(Error::PayloadTooLarge { .. })));
 }
 
@@ -50,7 +50,7 @@ async fn payload_over_64kb_limit_rejected() {
     state.set_signer(make_keys()).await.unwrap();
     let big = "x".repeat(64 * 1024 + 1);
     let payload = serde_json::json!(big);
-    let result = state.publish("big", &payload).await;
+    let result = state.publish("big", &payload, None).await;
     assert!(matches!(result, Err(Error::PayloadTooLarge { .. })));
 }
 
@@ -82,7 +82,7 @@ async fn publish_then_fetch_returns_same_payload() {
         .await;
 
     let payload = serde_json::json!({"theme": "dark", "fontSize": 14});
-    state.publish("ui-settings", &payload).await.unwrap();
+    state.publish("ui-settings", &payload, None).await.unwrap();
 
     let result = state.fetch("ui-settings").await.unwrap();
     assert_eq!(result.unwrap().payload, payload);
@@ -99,7 +99,7 @@ async fn publish_with_relay_down_returns_no_relays_accepted() {
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
 
     let result = state
-        .publish("ui-settings", &serde_json::json!({"x": 1}))
+        .publish("ui-settings", &serde_json::json!({"x": 1}), None)
         .await;
     assert!(matches!(result, Err(Error::NoRelaysAccepted)));
 }
@@ -115,11 +115,11 @@ async fn sync_all_returns_all_fetched_categories() {
         .await;
 
     state
-        .publish("ui-settings", &serde_json::json!({"theme": "dark"}))
+        .publish("ui-settings", &serde_json::json!({"theme": "dark"}), None)
         .await
         .unwrap();
     state
-        .publish("wallet", &serde_json::json!({"network": "mainnet"}))
+        .publish("wallet", &serde_json::json!({"network": "mainnet"}), None)
         .await
         .unwrap();
 
@@ -141,8 +141,8 @@ async fn sequential_publishes_to_same_category_returns_latest() {
 
     let first = serde_json::json!({"theme": "light"});
     let second = serde_json::json!({"theme": "dark"});
-    state.publish("ui-settings", &first).await.unwrap();
-    state.publish("ui-settings", &second).await.unwrap();
+    state.publish("ui-settings", &first, None).await.unwrap();
+    state.publish("ui-settings", &second, None).await.unwrap();
 
     // NIP-33 last-write-wins: the relay retains only the most recent event per d-tag.
     let result = state.fetch("ui-settings").await.unwrap();
@@ -162,8 +162,14 @@ async fn sync_all_returns_correct_payloads_per_category() {
 
     let ui_payload = serde_json::json!({"theme": "dark"});
     let wallet_payload = serde_json::json!({"network": "mainnet"});
-    state.publish("ui-settings", &ui_payload).await.unwrap();
-    state.publish("wallet", &wallet_payload).await.unwrap();
+    state
+        .publish("ui-settings", &ui_payload, None)
+        .await
+        .unwrap();
+    state
+        .publish("wallet", &wallet_payload, None)
+        .await
+        .unwrap();
 
     let categories = vec!["ui-settings".to_string(), "wallet".to_string()];
     let mut results = state.sync_all(&categories).await.unwrap();
@@ -189,7 +195,7 @@ async fn sync_all_omits_categories_with_no_data() {
         .await;
 
     state
-        .publish("ui-settings", &serde_json::json!({"theme": "dark"}))
+        .publish("ui-settings", &serde_json::json!({"theme": "dark"}), None)
         .await
         .unwrap();
     // "wallet" is never published
@@ -236,7 +242,7 @@ async fn poll_returns_update_on_first_call() {
         .await;
 
     let payload = serde_json::json!({"theme": "dark"});
-    state.publish("ui-settings", &payload).await.unwrap();
+    state.publish("ui-settings", &payload, None).await.unwrap();
 
     let results = state.poll(&["ui-settings".to_string()]).await.unwrap();
     assert_eq!(results.len(), 1);
@@ -256,7 +262,7 @@ async fn poll_deduplicates_unchanged_events() {
         .await;
 
     let payload = serde_json::json!({"theme": "dark"});
-    state.publish("ui-settings", &payload).await.unwrap();
+    state.publish("ui-settings", &payload, None).await.unwrap();
 
     let first = state.poll(&["ui-settings".to_string()]).await.unwrap();
     assert_eq!(first.len(), 1);
@@ -278,7 +284,7 @@ async fn poll_returns_update_after_republish() {
         .await;
 
     state
-        .publish("ui-settings", &serde_json::json!({"theme": "light"}))
+        .publish("ui-settings", &serde_json::json!({"theme": "light"}), None)
         .await
         .unwrap();
     let first = state.poll(&["ui-settings".to_string()]).await.unwrap();
@@ -289,7 +295,10 @@ async fn poll_returns_update_after_republish() {
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     let new_payload = serde_json::json!({"theme": "dark"});
-    state.publish("ui-settings", &new_payload).await.unwrap();
+    state
+        .publish("ui-settings", &new_payload, None)
+        .await
+        .unwrap();
 
     let second = state.poll(&["ui-settings".to_string()]).await.unwrap();
     assert_eq!(second.len(), 1);
@@ -308,11 +317,11 @@ async fn poll_with_multiple_categories_returns_only_changed() {
         .await;
 
     state
-        .publish("ui-settings", &serde_json::json!({"theme": "dark"}))
+        .publish("ui-settings", &serde_json::json!({"theme": "dark"}), None)
         .await
         .unwrap();
     state
-        .publish("wallet", &serde_json::json!({"network": "mainnet"}))
+        .publish("wallet", &serde_json::json!({"network": "mainnet"}), None)
         .await
         .unwrap();
 
@@ -325,7 +334,10 @@ async fn poll_with_multiple_categories_returns_only_changed() {
     // Re-publish only wallet with a newer timestamp
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     let updated_wallet = serde_json::json!({"network": "testnet"});
-    state.publish("wallet", &updated_wallet).await.unwrap();
+    state
+        .publish("wallet", &updated_wallet, None)
+        .await
+        .unwrap();
 
     // Second poll — only wallet changed
     let second = state.poll(&categories).await.unwrap();

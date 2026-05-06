@@ -15,7 +15,7 @@ export interface SyncStatus {
     connectedRelayCount: number;
     deviceId: string;
 }
-export declare function publish(category: string, payload: unknown): Promise<void>;
+export declare function publish(category: string, payload: unknown, expiresAt?: number): Promise<void>;
 export declare function fetch(category: string): Promise<FetchResult | null>;
 export declare function syncAll(categories: string[]): Promise<FetchResult[]>;
 export declare function addRelay(url: string): Promise<void>;

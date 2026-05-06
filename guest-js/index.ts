@@ -20,9 +20,13 @@ export interface SyncStatus {
   deviceId: string;
 }
 
-export async function publish(category: string, payload: unknown): Promise<void> {
+export async function publish(
+  category: string,
+  payload: unknown,
+  expiresAt?: number
+): Promise<void> {
   return invoke("plugin:nostr-sync|publish", {
-    request: { category, payload },
+    request: { category, payload, expiration: expiresAt ?? null },
   });
 }
 

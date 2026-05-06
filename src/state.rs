@@ -87,7 +87,12 @@ impl NostrSyncState {
             .collect()
     }
 
-    pub async fn publish(&self, category: &str, payload: &serde_json::Value) -> Result<()> {
+    pub async fn publish(
+        &self,
+        category: &str,
+        payload: &serde_json::Value,
+        expiration: Option<u64>,
+    ) -> Result<()> {
         validate_category(category)?;
         let signer = self
             .client
@@ -107,10 +112,15 @@ impl NostrSyncState {
         let device_tag = Tag::parse(vec!["device_id", &self.device_id])
             .expect("device_id tag construction is infallible");
 
-        let unsigned = EventBuilder::new(kind, ciphertext)
+        let mut builder = EventBuilder::new(kind, ciphertext)
             .tag(Tag::identifier(&dtag))
-            .tag(device_tag)
-            .build(pubkey);
+            .tag(device_tag);
+
+        if let Some(ts) = expiration {
+            builder = builder.tag(Tag::expiration(Timestamp::from(ts)));
+        }
+
+        let unsigned = builder.build(pubkey);
 
         let event = signer
             .sign_event(unsigned)
@@ -428,7 +438,7 @@ mod tests {
         let state = NostrSyncState::new("testapp", "test-device").unwrap();
         state.set_signer(nostr_sdk::Keys::generate()).await.unwrap();
         let result = state
-            .publish("ui/settings", &serde_json::json!({"x": 1}))
+            .publish("ui/settings", &serde_json::json!({"x": 1}), None)
             .await;
         assert!(matches!(result, Err(Error::InvalidCategory(_))));
     }
@@ -447,7 +457,7 @@ mod tests {
         state.set_signer(nostr_sdk::Keys::generate()).await.unwrap();
         state.clear_signer().await;
         let result = state
-            .publish("ui-settings", &serde_json::json!({"x": 1}))
+            .publish("ui-settings", &serde_json::json!({"x": 1}), None)
             .await;
         assert!(matches!(result, Err(Error::SignerNotSet)));
     }
@@ -456,7 +466,7 @@ mod tests {
     async fn publish_without_signer_returns_signer_not_set() {
         let state = NostrSyncState::new("testapp", "test-device").unwrap();
         let result = state
-            .publish("ui-settings", &serde_json::json!({ "theme": "dark" }))
+            .publish("ui-settings", &serde_json::json!({ "theme": "dark" }), None)
             .await;
         assert!(matches!(result, Err(Error::SignerNotSet)));
     }

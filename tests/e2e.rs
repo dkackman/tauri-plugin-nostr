@@ -17,7 +17,7 @@ async fn two_instances_publish_and_poll() {
         .await;
 
     let payload = serde_json::json!({"value": "hello-from-a"});
-    sender.publish("settings", &payload).await.unwrap();
+    sender.publish("settings", &payload, None).await.unwrap();
 
     // Instance B polls (same keypair — same pubkey, can decrypt NIP-44)
     let receiver = NostrSyncState::new("e2e-test", "test-device").unwrap();

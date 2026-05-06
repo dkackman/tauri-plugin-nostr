@@ -1,8 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
 
-async function publish(category, payload) {
+async function publish(category, payload, expiresAt) {
     return invoke("plugin:nostr-sync|publish", {
-        request: { category, payload },
+        request: { category, payload, expiration: expiresAt ?? null },
     });
 }
 async function fetch(category) {

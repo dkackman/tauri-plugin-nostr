@@ -32,6 +32,7 @@ Any Tauri app (desktop or mobile) that needs to sync named categories of state a
 | d-tag format | `{namespace}/{category}/v1` e.g. `sage/ui-settings/v1` |
 | Relay protocol | Standard NIP-01 WebSocket |
 | Multi-relay | Publish to all, query all, first-write-wins per relay |
+| Expiration | NIP-40 optional; caller supplies Unix timestamp, relay support is the caller's responsibility |
 
 Relays retain only the latest event per `(pubkey, kind, d-tag)` tuple. This is the persistence mechanism — no other storage is needed on the relay side.
 
@@ -121,6 +122,8 @@ import { NostrSync } from 'tauri-plugin-nostr-sync-api'
 await NostrSync.publish({
   category: string,       // e.g. 'ui-settings'
   payload: unknown,       // must be JSON-serializable
+  expiration?: number,    // NIP-40: Unix timestamp (seconds) after which relays should discard the event.
+                          // Relay support is the caller's responsibility — query NIP-11 before use.
 }): Promise<void>
 
 // Fetch the latest known state for a category.
@@ -234,7 +237,7 @@ The plugin relies on `nostr_sdk::Client` for relay pool management, signer stora
 2. Plugin retrieves the signer from the client → `Error::SignerNotSet` if absent
 3. Plugin serializes payload to JSON; rejects if > 64KB (`Error::PayloadTooLarge`)
 4. Plugin NIP-44-encrypts the JSON to its own pubkey
-5. Plugin constructs NIP-33 event with d-tag `{namespace}/{category}/v1` and a `device_id` tag
+5. Plugin constructs NIP-33 event with d-tag `{namespace}/{category}/v1` and a `device_id` tag; if `expiration` is provided, appends a NIP-40 `expiration` tag
 6. Plugin signs the event via the signer
 7. Plugin calls `client.send_event(event)`; the SDK broadcasts to all WRITE relays
 8. If `Output.success` is non-empty (at least one relay accepted) → return `Ok(())`

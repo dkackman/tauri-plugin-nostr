@@ -93,6 +93,10 @@ import {
 // Publish state for a named category (encrypted)
 await publish('ui-settings', { theme: 'dark', fontSize: 14 })
 
+// Publish with NIP-40 expiration (Unix timestamp seconds) — relay support is the caller's responsibility
+const oneHour = Math.floor(Date.now() / 1000) + 3600
+await publish('ui-settings', { theme: 'dark' }, oneHour)
+
 // Fetch the latest known state for a category
 const result = await fetch('ui-settings')
 // result: { category: string, payload: unknown, updatedAt: string, deviceId: string } | null
@@ -153,7 +157,11 @@ sync.add_relay("wss://relay.example.com").await?;
 sync.remove_relay("wss://relay.example.com").await?;
 let relays = sync.relays().await; // Vec<RelayInfo>
 
-sync.publish("ui-settings", &serde_json::json!({ "theme": "dark" })).await?;
+sync.publish("ui-settings", &serde_json::json!({ "theme": "dark" }), None).await?;
+
+// NIP-40: optional expiration (Unix timestamp seconds); relay support is the caller's responsibility
+let expires = nostr_sdk::Timestamp::now().as_u64() + 3600;
+sync.publish("ui-settings", &serde_json::json!({ "theme": "dark" }), Some(expires)).await?;
 let result = sync.fetch("ui-settings").await?;   // Option<FetchResult>
 
 let categories = vec!["ui-settings".to_string(), "wallet".to_string()];

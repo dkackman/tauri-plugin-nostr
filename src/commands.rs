@@ -8,7 +8,7 @@ use crate::{
 #[tauri::command]
 pub async fn publish<R: Runtime>(app: AppHandle<R>, request: PublishRequest) -> Result<()> {
     app.nostr_sync()
-        .publish(&request.category, &request.payload)
+        .publish(&request.category, &request.payload, request.expiration)
         .await
 }
 

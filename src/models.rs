@@ -7,6 +7,8 @@ use serde_json::Value;
 pub struct PublishRequest {
     pub category: String,
     pub payload: Value,
+    /// NIP-40 expiration as a Unix timestamp (seconds). Relay support is the caller's responsibility.
+    pub expiration: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
