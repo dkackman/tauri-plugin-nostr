@@ -21,7 +21,7 @@ Add the Rust crate to your `src-tauri/Cargo.toml`:
 
 ```toml
 [dependencies]
-tauri-plugin-nostr-sync = "0.1.0-alpha.1"
+tauri-plugin-nostr-sync = "0.1.0-alpha.2"
 ```
 
 Add the JavaScript bindings:
