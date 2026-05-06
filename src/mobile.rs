@@ -21,7 +21,7 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
     // Register the native no-op plugin to satisfy Tauri's mobile lifecycle.
     // The handle is intentionally dropped — all logic runs in Rust.
     #[cfg(target_os = "android")]
-    let _ = api.register_android_plugin("tauri-plugin-nostr-sync", "NostrSyncPlugin");
+    let _ = api.register_android_plugin("app.tauri.plugin.nostr", "NostrSyncPlugin");
     #[cfg(target_os = "ios")]
     let _ = api.register_ios_plugin(init_plugin_tauri_plugin_nostr_sync);
     #[cfg(not(any(target_os = "ios", target_os = "android")))]

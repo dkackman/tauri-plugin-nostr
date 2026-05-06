@@ -2193,22 +2193,118 @@
           "markdownDescription": "Denies the unminimize command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`",
+          "description": "Default permissions for tauri-plugin-nostr-sync\n#### This default permission set includes:\n\n- `allow-publish`\n- `allow-fetch`\n- `allow-poll`\n- `allow-sync-all`\n- `allow-add-relay`\n- `allow-remove-relay`\n- `allow-get-relays`\n- `allow-get-pubkey`\n- `allow-get-status`",
           "type": "string",
           "const": "nostr-sync:default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`"
+          "markdownDescription": "Default permissions for tauri-plugin-nostr-sync\n#### This default permission set includes:\n\n- `allow-publish`\n- `allow-fetch`\n- `allow-poll`\n- `allow-sync-all`\n- `allow-add-relay`\n- `allow-remove-relay`\n- `allow-get-relays`\n- `allow-get-pubkey`\n- `allow-get-status`"
         },
         {
-          "description": "Enables the ping command without any pre-configured scope.",
+          "description": "Enables the add_relay command without any pre-configured scope.",
           "type": "string",
-          "const": "nostr-sync:allow-ping",
-          "markdownDescription": "Enables the ping command without any pre-configured scope."
+          "const": "nostr-sync:allow-add-relay",
+          "markdownDescription": "Enables the add_relay command without any pre-configured scope."
         },
         {
-          "description": "Denies the ping command without any pre-configured scope.",
+          "description": "Enables the fetch command without any pre-configured scope.",
           "type": "string",
-          "const": "nostr-sync:deny-ping",
-          "markdownDescription": "Denies the ping command without any pre-configured scope."
+          "const": "nostr-sync:allow-fetch",
+          "markdownDescription": "Enables the fetch command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_pubkey command without any pre-configured scope.",
+          "type": "string",
+          "const": "nostr-sync:allow-get-pubkey",
+          "markdownDescription": "Enables the get_pubkey command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_relays command without any pre-configured scope.",
+          "type": "string",
+          "const": "nostr-sync:allow-get-relays",
+          "markdownDescription": "Enables the get_relays command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "nostr-sync:allow-get-status",
+          "markdownDescription": "Enables the get_status command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the poll command without any pre-configured scope.",
+          "type": "string",
+          "const": "nostr-sync:allow-poll",
+          "markdownDescription": "Enables the poll command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the publish command without any pre-configured scope.",
+          "type": "string",
+          "const": "nostr-sync:allow-publish",
+          "markdownDescription": "Enables the publish command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the remove_relay command without any pre-configured scope.",
+          "type": "string",
+          "const": "nostr-sync:allow-remove-relay",
+          "markdownDescription": "Enables the remove_relay command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the sync_all command without any pre-configured scope.",
+          "type": "string",
+          "const": "nostr-sync:allow-sync-all",
+          "markdownDescription": "Enables the sync_all command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the add_relay command without any pre-configured scope.",
+          "type": "string",
+          "const": "nostr-sync:deny-add-relay",
+          "markdownDescription": "Denies the add_relay command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the fetch command without any pre-configured scope.",
+          "type": "string",
+          "const": "nostr-sync:deny-fetch",
+          "markdownDescription": "Denies the fetch command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_pubkey command without any pre-configured scope.",
+          "type": "string",
+          "const": "nostr-sync:deny-get-pubkey",
+          "markdownDescription": "Denies the get_pubkey command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_relays command without any pre-configured scope.",
+          "type": "string",
+          "const": "nostr-sync:deny-get-relays",
+          "markdownDescription": "Denies the get_relays command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "nostr-sync:deny-get-status",
+          "markdownDescription": "Denies the get_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the poll command without any pre-configured scope.",
+          "type": "string",
+          "const": "nostr-sync:deny-poll",
+          "markdownDescription": "Denies the poll command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the publish command without any pre-configured scope.",
+          "type": "string",
+          "const": "nostr-sync:deny-publish",
+          "markdownDescription": "Denies the publish command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the remove_relay command without any pre-configured scope.",
+          "type": "string",
+          "const": "nostr-sync:deny-remove-relay",
+          "markdownDescription": "Denies the remove_relay command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the sync_all command without any pre-configured scope.",
+          "type": "string",
+          "const": "nostr-sync:deny-sync-all",
+          "markdownDescription": "Denies the sync_all command without any pre-configured scope."
         }
       ]
     },
