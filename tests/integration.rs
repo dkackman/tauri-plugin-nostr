@@ -10,7 +10,12 @@ fn make_keys() -> nostr_sdk::Keys {
 
 #[tokio::test]
 async fn publish_without_signer_returns_signer_not_set() {
-    let state = NostrSyncState::new("testapp", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let state = NostrSyncState::new(
+        "testapp",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     let result = state
         .publish("ui-settings", &serde_json::json!({"x": 1}), None)
         .await;
@@ -19,21 +24,36 @@ async fn publish_without_signer_returns_signer_not_set() {
 
 #[tokio::test]
 async fn fetch_without_signer_returns_signer_not_set() {
-    let state = NostrSyncState::new("testapp", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let state = NostrSyncState::new(
+        "testapp",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     let result = state.fetch("ui-settings").await;
     assert!(matches!(result, Err(Error::SignerNotSet)));
 }
 
 #[tokio::test]
 async fn sync_all_without_signer_returns_signer_not_set() {
-    let state = NostrSyncState::new("testapp", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let state = NostrSyncState::new(
+        "testapp",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     let result = state.sync_all(&["ui-settings".to_string()]).await;
     assert!(matches!(result, Err(Error::SignerNotSet)));
 }
 
 #[tokio::test]
 async fn payload_at_64kb_limit_accepted() {
-    let state = NostrSyncState::new("testapp", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let state = NostrSyncState::new(
+        "testapp",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     state.set_signer(make_keys()).await.unwrap();
     // A JSON string value serializes with enclosing quotes: N chars → N+2 bytes.
     // Use 64*1024 - 2 chars so the serialized form is exactly at the 64KB limit.
@@ -46,7 +66,12 @@ async fn payload_at_64kb_limit_accepted() {
 
 #[tokio::test]
 async fn payload_over_64kb_limit_rejected() {
-    let state = NostrSyncState::new("testapp", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let state = NostrSyncState::new(
+        "testapp",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     state.set_signer(make_keys()).await.unwrap();
     let big = "x".repeat(64 * 1024 + 1);
     let payload = serde_json::json!(big);
@@ -59,7 +84,12 @@ async fn payload_over_64kb_limit_rejected() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn fetch_returns_none_when_no_events_exist() {
     let relay = common::MockRelay::start().await;
-    let state = NostrSyncState::new("testapp", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let state = NostrSyncState::new(
+        "testapp",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     state.add_relay(&relay.url()).await.unwrap();
     state.set_signer(make_keys()).await.unwrap();
     state
@@ -74,7 +104,12 @@ async fn fetch_returns_none_when_no_events_exist() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn publish_then_fetch_returns_same_payload() {
     let relay = common::MockRelay::start().await;
-    let state = NostrSyncState::new("testapp", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let state = NostrSyncState::new(
+        "testapp",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     state.add_relay(&relay.url()).await.unwrap();
     state.set_signer(make_keys()).await.unwrap();
     state
@@ -91,7 +126,12 @@ async fn publish_then_fetch_returns_same_payload() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn publish_with_relay_down_returns_no_relays_accepted() {
-    let state = NostrSyncState::new("testapp", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let state = NostrSyncState::new(
+        "testapp",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     // Add a URL where nothing is listening.
     state.add_relay("ws://127.0.0.1:19999").await.unwrap();
     state.set_signer(make_keys()).await.unwrap();
@@ -107,7 +147,12 @@ async fn publish_with_relay_down_returns_no_relays_accepted() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn sync_all_returns_all_fetched_categories() {
     let relay = common::MockRelay::start().await;
-    let state = NostrSyncState::new("testapp", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let state = NostrSyncState::new(
+        "testapp",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     state.add_relay(&relay.url()).await.unwrap();
     state.set_signer(make_keys()).await.unwrap();
     state
@@ -132,7 +177,12 @@ async fn sync_all_returns_all_fetched_categories() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn sequential_publishes_to_same_category_returns_latest() {
     let relay = common::MockRelay::start().await;
-    let state = NostrSyncState::new("testapp", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let state = NostrSyncState::new(
+        "testapp",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     state.add_relay(&relay.url()).await.unwrap();
     state.set_signer(make_keys()).await.unwrap();
     state
@@ -153,7 +203,12 @@ async fn sequential_publishes_to_same_category_returns_latest() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn sync_all_returns_correct_payloads_per_category() {
     let relay = common::MockRelay::start().await;
-    let state = NostrSyncState::new("testapp", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let state = NostrSyncState::new(
+        "testapp",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     state.add_relay(&relay.url()).await.unwrap();
     state.set_signer(make_keys()).await.unwrap();
     state
@@ -187,7 +242,12 @@ async fn sync_all_returns_correct_payloads_per_category() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn sync_all_omits_categories_with_no_data() {
     let relay = common::MockRelay::start().await;
-    let state = NostrSyncState::new("testapp", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let state = NostrSyncState::new(
+        "testapp",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     state.add_relay(&relay.url()).await.unwrap();
     state.set_signer(make_keys()).await.unwrap();
     state
@@ -211,7 +271,12 @@ async fn sync_all_omits_categories_with_no_data() {
 
 #[tokio::test]
 async fn poll_without_signer_returns_signer_not_set() {
-    let state = NostrSyncState::new("testapp", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let state = NostrSyncState::new(
+        "testapp",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     let result = state.poll(&["ui-settings".to_string()]).await;
     assert!(matches!(result, Err(Error::SignerNotSet)));
 }
@@ -219,7 +284,12 @@ async fn poll_without_signer_returns_signer_not_set() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn poll_returns_empty_when_no_events() {
     let relay = common::MockRelay::start().await;
-    let state = NostrSyncState::new("testapp", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let state = NostrSyncState::new(
+        "testapp",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     state.add_relay(&relay.url()).await.unwrap();
     state.set_signer(make_keys()).await.unwrap();
     state
@@ -234,7 +304,12 @@ async fn poll_returns_empty_when_no_events() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn poll_returns_update_on_first_call() {
     let relay = common::MockRelay::start().await;
-    let state = NostrSyncState::new("testapp", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let state = NostrSyncState::new(
+        "testapp",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     state.add_relay(&relay.url()).await.unwrap();
     state.set_signer(make_keys()).await.unwrap();
     state
@@ -254,7 +329,12 @@ async fn poll_returns_update_on_first_call() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn poll_deduplicates_unchanged_events() {
     let relay = common::MockRelay::start().await;
-    let state = NostrSyncState::new("testapp", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let state = NostrSyncState::new(
+        "testapp",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     state.add_relay(&relay.url()).await.unwrap();
     state.set_signer(make_keys()).await.unwrap();
     state
@@ -276,7 +356,12 @@ async fn poll_deduplicates_unchanged_events() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn poll_returns_update_after_republish() {
     let relay = common::MockRelay::start().await;
-    let state = NostrSyncState::new("testapp", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let state = NostrSyncState::new(
+        "testapp",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     state.add_relay(&relay.url()).await.unwrap();
     state.set_signer(make_keys()).await.unwrap();
     state
@@ -309,7 +394,12 @@ async fn poll_returns_update_after_republish() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn poll_with_multiple_categories_returns_only_changed() {
     let relay = common::MockRelay::start().await;
-    let state = NostrSyncState::new("testapp", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let state = NostrSyncState::new(
+        "testapp",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     state.add_relay(&relay.url()).await.unwrap();
     state.set_signer(make_keys()).await.unwrap();
     state

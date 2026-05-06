@@ -17,7 +17,7 @@ pub use builder::PluginBuilder;
 /// Alias for `PluginBuilder` matching the spec's `tauri_plugin_nostr_sync::Builder::new()` usage.
 pub use builder::PluginBuilder as Builder;
 pub use error::{Error, Result};
-pub use state::{DEFAULT_PAYLOAD_LIMIT, MAX_PAYLOAD_LIMIT, NostrSyncState};
+pub use state::{NostrSyncState, DEFAULT_PAYLOAD_LIMIT, MAX_PAYLOAD_LIMIT};
 
 #[cfg(desktop)]
 use desktop::TauriPluginNostrSync;

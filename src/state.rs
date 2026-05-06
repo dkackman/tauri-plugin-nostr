@@ -8,8 +8,8 @@ use nostr_sdk::{
 
 use crate::{Error, RelayInfo, Result, SyncStatus};
 
-pub const DEFAULT_PAYLOAD_LIMIT: usize = 64 * 1024;  // 64KB default
-pub const MAX_PAYLOAD_LIMIT: usize = 400 * 1024;     // 400KB hard cap
+pub const DEFAULT_PAYLOAD_LIMIT: usize = 64 * 1024; // 64KB default
+pub const MAX_PAYLOAD_LIMIT: usize = 400 * 1024; // 400KB hard cap
 
 pub struct NostrSyncState {
     pub(crate) namespace: String,
@@ -388,7 +388,9 @@ mod tests {
         let keys = nostr_sdk::Keys::generate();
         let signer: Arc<dyn NostrSigner> = Arc::new(keys);
         let original = serde_json::json!({ "theme": "dark", "font_size": 14 });
-        let encrypted = encrypt_payload(&signer, &original, DEFAULT_PAYLOAD_LIMIT).await.unwrap();
+        let encrypted = encrypt_payload(&signer, &original, DEFAULT_PAYLOAD_LIMIT)
+            .await
+            .unwrap();
         let decrypted = decrypt_payload(&signer, &encrypted).await.unwrap();
         assert_eq!(original, decrypted);
     }

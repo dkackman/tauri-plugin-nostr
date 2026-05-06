@@ -9,7 +9,12 @@ async fn two_instances_publish_and_poll() {
     let keys = nostr_sdk::Keys::generate();
 
     // Instance A publishes
-    let sender = NostrSyncState::new("e2e-test", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let sender = NostrSyncState::new(
+        "e2e-test",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     sender.add_relay(relay_url).await.unwrap();
     sender.set_signer(keys.clone()).await.unwrap();
     sender
@@ -20,7 +25,12 @@ async fn two_instances_publish_and_poll() {
     sender.publish("settings", &payload, None).await.unwrap();
 
     // Instance B polls (same keypair — same pubkey, can decrypt NIP-44)
-    let receiver = NostrSyncState::new("e2e-test", "test-device", tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT).unwrap();
+    let receiver = NostrSyncState::new(
+        "e2e-test",
+        "test-device",
+        tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
+    )
+    .unwrap();
     receiver.add_relay(relay_url).await.unwrap();
     receiver.set_signer(keys.clone()).await.unwrap();
     receiver
