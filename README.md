@@ -4,6 +4,9 @@ Encrypted, decentralized state sync for Tauri apps using [Nostr](https://nostr.c
 
 The plugin moves encrypted blobs between instances of your app via Nostr relays. Key derivation, storage, schema versioning, and conflict resolution are your app's responsibility — the plugin is transport only.
 
+[![npm](https://img.shields.io/npm/v/tauri-plugin-nostr-sync-api)](https://www.npmjs.com/package/tauri-plugin-nostr-sync-api)
+[![Crates.io Downloads (latest version)](https://img.shields.io/crates/dv/tauri-plugin-nostr-sync)](https://crates.io/crates/tauri-plugin-nostr-sync)
+
 ## Status
 
 Pre-1.0 and under active development. **Phase 1** (Rust state machine) and **Phase 2** (Tauri IPC commands, TypeScript bindings, configurable `Builder`) are shipped. See `specs/tauri-plugin-nostr.md` for the full design.
