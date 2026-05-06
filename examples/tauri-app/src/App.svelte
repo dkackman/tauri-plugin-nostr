@@ -12,6 +12,7 @@
   let darkMode = $state(false);
   let ownDeviceId = $state("");
   let entries = $state([]);
+  let activeTab = $state("controls");
 
   // Keep Bootstrap's color mode in sync with darkMode state.
   $effect(() => {
@@ -65,7 +66,40 @@
     >
   </div>
 
-  <div class="d-flex flex-grow-1 overflow-hidden">
+  <!-- Mobile layout: tab bar + single column (hidden at md+) -->
+  <div class="d-flex d-md-none flex-column flex-grow-1 overflow-hidden">
+    <div class="px-3 pt-2 bg-body-secondary border-bottom">
+      <ul class="nav nav-pills nav-fill" style="font-size:11px;">
+        <li class="nav-item">
+          <button
+            class="nav-link py-1 {activeTab === 'controls' ? 'active' : ''}"
+            onclick={() => (activeTab = "controls")}
+          >Controls</button>
+        </li>
+        <li class="nav-item">
+          <button
+            class="nav-link py-1 {activeTab === 'console' ? 'active' : ''}"
+            onclick={() => (activeTab = "console")}
+          >Console{entries.length > 0 ? ` (${entries.length})` : ""}</button>
+        </li>
+      </ul>
+    </div>
+    {#if activeTab === "controls"}
+      <div class="d-flex flex-column p-3 overflow-auto flex-grow-1 bg-body-secondary">
+        <IdentityCard bind:pubkey {log} />
+        <RelayCard {log} />
+        <SettingCard bind:darkMode {log} />
+        <ActionsCard {darkMode} onDarkModeChange={(v) => (darkMode = v)} {log} />
+      </div>
+    {:else}
+      <div class="d-flex flex-column flex-grow-1 p-3 overflow-hidden">
+        <ConsoleLog {entries} onClear={() => { entries = []; }} />
+      </div>
+    {/if}
+  </div>
+
+  <!-- Desktop layout: two columns (hidden below md) -->
+  <div class="d-none d-md-flex flex-grow-1 overflow-hidden">
     <!-- Left column -->
     <div
       class="d-flex flex-column p-3 border-end overflow-auto bg-body-secondary"
