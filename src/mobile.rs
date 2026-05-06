@@ -72,8 +72,8 @@ impl<R: Runtime> TauriPluginNostrSync<R> {
         self.pub_state.relays().await
     }
 
-    pub async fn publish(&self, category: &str, payload: &serde_json::Value) -> Result<()> {
-        self.pub_state.publish(category, payload).await
+    pub async fn publish(&self, category: &str, payload: &serde_json::Value, expiration: Option<u64>) -> Result<()> {
+        self.pub_state.publish(category, payload, expiration).await
     }
 
     pub async fn fetch(&self, category: &str) -> Result<Option<FetchResult>> {

@@ -8,6 +8,9 @@ use nostr_sdk::{
 
 use crate::{Error, RelayInfo, Result, SyncStatus};
 
+pub const DEFAULT_PAYLOAD_LIMIT: usize = 64 * 1024;  // 64KB default
+pub const MAX_PAYLOAD_LIMIT: usize = 400 * 1024;     // 400KB hard cap
+
 pub struct NostrSyncState {
     pub(crate) namespace: String,
     pub(crate) device_id: String,
@@ -269,9 +272,6 @@ impl NostrSyncState {
         Ok(updates)
     }
 }
-
-pub const DEFAULT_PAYLOAD_LIMIT: usize = 64 * 1024;  // 64KB default
-pub const MAX_PAYLOAD_LIMIT: usize = 400 * 1024;     // 400KB hard cap
 
 fn check_payload_size(json: &str, limit: usize) -> Result<()> {
     let size = json.len();
