@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
 use serde::de::DeserializeOwned;
-use tauri::{
-    plugin::PluginApi,
-    AppHandle, Emitter, Runtime,
-};
+use tauri::{plugin::PluginApi, AppHandle, Emitter, Runtime};
 
 use crate::{FetchResult, NostrSyncState, RelayInfo, Result, SyncStatus};
 

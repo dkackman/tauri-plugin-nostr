@@ -73,14 +73,15 @@
         <li class="nav-item">
           <button
             class="nav-link py-1 {activeTab === 'controls' ? 'active' : ''}"
-            onclick={() => (activeTab = "controls")}
-          >Controls</button>
+            onclick={() => (activeTab = "controls")}>Controls</button
+          >
         </li>
         <li class="nav-item">
           <button
             class="nav-link py-1 {activeTab === 'console' ? 'active' : ''}"
             onclick={() => (activeTab = "console")}
-          >Console{entries.length > 0 ? ` (${entries.length})` : ""}</button>
+            >Console{entries.length > 0 ? ` (${entries.length})` : ""}</button
+          >
         </li>
       </ul>
     </div>
@@ -93,7 +94,12 @@
       </div>
     {:else}
       <div class="d-flex flex-column flex-grow-1 p-3 overflow-hidden">
-        <ConsoleLog {entries} onClear={() => { entries = []; }} />
+        <ConsoleLog
+          {entries}
+          onClear={() => {
+            entries = [];
+          }}
+        />
       </div>
     {/if}
   </div>
