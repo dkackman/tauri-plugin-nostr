@@ -48,7 +48,8 @@ tauri::Builder::default()
                 "wss://relay.nostr.band",
                 "wss://nos.lol",
             ])
-            .app_namespace("myapp")  // prefixes all d-tags
+            .app_namespace("myapp")       // prefixes all d-tags
+            .max_payload_size(128 * 1024) // optional: default 64KB, cap 400KB
             .build()
     )
     .run(tauri::generate_context!())
@@ -56,6 +57,10 @@ tauri::Builder::default()
 ```
 
 `tauri_plugin_nostr_sync::init()` is a convenience alias for `Builder::new().build()` with the `"default"` namespace and no preconfigured relays.
+
+### Payload size limit
+
+The default maximum payload size is **64KB**. Use `.max_payload_size(bytes)` on the builder to increase it up to **400KB**. Values above 400KB are rejected at plugin startup via Tauri's setup error path. `publish` returns `Error::PayloadTooLarge` when the serialized payload exceeds the configured limit.
 
 Add the permission to your app's capability file (`src-tauri/capabilities/default.json`):
 

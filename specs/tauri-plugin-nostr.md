@@ -18,6 +18,7 @@ Any Tauri app (desktop or mobile) that needs to sync named categories of state a
 - **Secret key never retained** — the plugin holds signing capability through a `NostrSigner` trait object, not raw key bytes; when cleared, the trait object is dropped immediately and key material is zeroed by the signer's `ZeroizeOnDrop` impl
 - **Derived sync key only** — callers MUST derive a Nostr-specific subkey from the wallet master key before passing it to the plugin; passing the root wallet key is explicitly prohibited
 - **Synchronous publish result** — `publish` returns a `Result` to the caller; errors (no relay accepted, signer not set, payload too large, encrypt failure) surface immediately. The caller is notified of remote changes via Tauri events.
+- **Payload size limit configurable** — `PluginBuilder::max_payload_size(bytes)` sets the per-publish limit; defaults to 64KB, hard cap 400KB. Values over the cap return `Error::InvalidPayloadLimit` through the Tauri plugin setup path.
 - **Mobile and desktop** — must work on iOS, Android, macOS, Windows, Linux via Tauri 2.x
 - **No required infrastructure** — works with public relays out of the box; self-hosted relay is optional
 
@@ -51,7 +52,8 @@ tauri::Builder::default()
                 "wss://relay.nostr.band",
                 "wss://nos.lol",
             ])
-            .app_namespace("sage")   // prefixes all d-tags
+            .app_namespace("sage")        // prefixes all d-tags
+            .max_payload_size(128 * 1024) // optional: default 64KB, cap 400KB
             .build()
     )
 ```
