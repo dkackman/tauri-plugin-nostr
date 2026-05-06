@@ -34,6 +34,9 @@ pub enum Error {
     #[error("no relays accepted the event")]
     NoRelaysAccepted,
 
+    #[error("payload limit {requested} bytes exceeds the {max} byte maximum")]
+    InvalidPayloadLimit { requested: usize, max: usize },
+
     #[cfg(mobile)]
     #[error(transparent)]
     PluginInvoke(#[from] tauri::plugin::mobile::PluginInvokeError),
