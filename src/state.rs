@@ -12,18 +12,26 @@ pub struct NostrSyncState {
     pub(crate) namespace: String,
     pub(crate) device_id: String,
     pub(crate) client: Client,
+    max_payload_size: usize,
     last_seen: tokio::sync::RwLock<std::collections::HashMap<String, Timestamp>>,
 }
 
 impl NostrSyncState {
-    pub fn new(namespace: &str, device_id: &str) -> Result<Self> {
+    pub fn new(namespace: &str, device_id: &str, max_payload_size: usize) -> Result<Self> {
         validate_namespace(namespace)?;
+        if max_payload_size > MAX_PAYLOAD_LIMIT {
+            return Err(Error::InvalidPayloadLimit {
+                requested: max_payload_size,
+                max: MAX_PAYLOAD_LIMIT,
+            });
+        }
         let opts = ClientOptions::default().autoconnect(true);
         let client = Client::builder().opts(opts).build();
         Ok(Self {
             namespace: namespace.to_string(),
             device_id: device_id.to_string(),
             client,
+            max_payload_size,
             last_seen: tokio::sync::RwLock::new(std::collections::HashMap::new()),
         })
     }
@@ -100,7 +108,7 @@ impl NostrSyncState {
             .await
             .map_err(|_| Error::SignerNotSet)?;
 
-        let ciphertext = encrypt_payload(&signer, payload).await?;
+        let ciphertext = encrypt_payload(&signer, payload, self.max_payload_size).await?;
         let dtag = build_dtag(&self.namespace, category);
         let kind = Kind::from(30078u16);
 
@@ -262,15 +270,13 @@ impl NostrSyncState {
     }
 }
 
-const PAYLOAD_LIMIT: usize = 64 * 1024; // 64KB
+pub const DEFAULT_PAYLOAD_LIMIT: usize = 64 * 1024;  // 64KB default
+pub const MAX_PAYLOAD_LIMIT: usize = 400 * 1024;     // 400KB hard cap
 
-fn check_payload_size(json: &str) -> Result<()> {
+fn check_payload_size(json: &str, limit: usize) -> Result<()> {
     let size = json.len();
-    if size > PAYLOAD_LIMIT {
-        return Err(Error::PayloadTooLarge {
-            size,
-            limit: PAYLOAD_LIMIT,
-        });
+    if size > limit {
+        return Err(Error::PayloadTooLarge { size, limit });
     }
     Ok(())
 }
@@ -278,6 +284,7 @@ fn check_payload_size(json: &str) -> Result<()> {
 async fn encrypt_payload(
     signer: &Arc<dyn NostrSigner>,
     payload: &serde_json::Value,
+    limit: usize,
 ) -> Result<String> {
     let pubkey = signer
         .get_public_key()
@@ -285,7 +292,7 @@ async fn encrypt_payload(
         .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
     let json =
         serde_json::to_string(payload).map_err(|e| Error::EncryptionFailed(e.to_string()))?;
-    check_payload_size(&json)?;
+    check_payload_size(&json, limit)?;
     signer
         .nip44_encrypt(&pubkey, &json)
         .await
@@ -371,7 +378,7 @@ mod tests {
 
     #[tokio::test]
     async fn sync_status_not_ready_without_signer() {
-        let state = NostrSyncState::new("testapp", "test-device").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
         let status = state.status().await;
         assert!(!status.ready);
     }
@@ -381,32 +388,34 @@ mod tests {
         let keys = nostr_sdk::Keys::generate();
         let signer: Arc<dyn NostrSigner> = Arc::new(keys);
         let original = serde_json::json!({ "theme": "dark", "font_size": 14 });
-        let encrypted = encrypt_payload(&signer, &original).await.unwrap();
+        let encrypted = encrypt_payload(&signer, &original, DEFAULT_PAYLOAD_LIMIT).await.unwrap();
         let decrypted = decrypt_payload(&signer, &encrypted).await.unwrap();
         assert_eq!(original, decrypted);
     }
 
     #[test]
     fn payload_at_limit_is_accepted() {
-        let json = "x".repeat(PAYLOAD_LIMIT);
-        assert!(check_payload_size(&json).is_ok());
+        let json = "x".repeat(DEFAULT_PAYLOAD_LIMIT);
+        assert!(check_payload_size(&json, DEFAULT_PAYLOAD_LIMIT).is_ok());
     }
 
     #[test]
     fn payload_over_limit_is_rejected() {
-        let json = "x".repeat(PAYLOAD_LIMIT + 1);
-        let result = check_payload_size(&json);
-        assert!(matches!(result, Err(Error::PayloadTooLarge { .. })));
+        let json = "x".repeat(DEFAULT_PAYLOAD_LIMIT + 1);
+        assert!(matches!(
+            check_payload_size(&json, DEFAULT_PAYLOAD_LIMIT),
+            Err(Error::PayloadTooLarge { .. })
+        ));
     }
 
     #[test]
     fn new_rejects_invalid_namespace() {
         assert!(matches!(
-            NostrSyncState::new("", "test-device"),
+            NostrSyncState::new("", "test-device", DEFAULT_PAYLOAD_LIMIT),
             Err(Error::InvalidNamespace(_))
         ));
         assert!(matches!(
-            NostrSyncState::new("a/b", "test-device"),
+            NostrSyncState::new("a/b", "test-device", DEFAULT_PAYLOAD_LIMIT),
             Err(Error::InvalidNamespace(_))
         ));
     }
@@ -435,7 +444,7 @@ mod tests {
 
     #[tokio::test]
     async fn publish_with_slash_category_returns_invalid_category() {
-        let state = NostrSyncState::new("testapp", "test-device").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
         state.set_signer(nostr_sdk::Keys::generate()).await.unwrap();
         let result = state
             .publish("ui/settings", &serde_json::json!({"x": 1}), None)
@@ -445,7 +454,7 @@ mod tests {
 
     #[tokio::test]
     async fn fetch_with_slash_category_returns_invalid_category() {
-        let state = NostrSyncState::new("testapp", "test-device").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
         state.set_signer(nostr_sdk::Keys::generate()).await.unwrap();
         let result = state.fetch("ui/settings").await;
         assert!(matches!(result, Err(Error::InvalidCategory(_))));
@@ -453,7 +462,7 @@ mod tests {
 
     #[tokio::test]
     async fn clear_signer_prevents_publish() {
-        let state = NostrSyncState::new("testapp", "test-device").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
         state.set_signer(nostr_sdk::Keys::generate()).await.unwrap();
         state.clear_signer().await;
         let result = state
@@ -464,7 +473,7 @@ mod tests {
 
     #[tokio::test]
     async fn publish_without_signer_returns_signer_not_set() {
-        let state = NostrSyncState::new("testapp", "test-device").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
         let result = state
             .publish("ui-settings", &serde_json::json!({ "theme": "dark" }), None)
             .await;
@@ -473,20 +482,20 @@ mod tests {
 
     #[tokio::test]
     async fn fetch_without_signer_returns_signer_not_set() {
-        let state = NostrSyncState::new("testapp", "test-device").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
         let result = state.fetch("ui-settings").await;
         assert!(matches!(result, Err(Error::SignerNotSet)));
     }
 
     #[tokio::test]
     async fn pubkey_is_none_without_signer() {
-        let state = NostrSyncState::new("testapp", "test-device").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
         assert!(state.pubkey().await.is_none());
     }
 
     #[tokio::test]
     async fn sync_all_without_signer_returns_signer_not_set() {
-        let state = NostrSyncState::new("testapp", "test-device").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
         let categories = vec!["ui-settings".to_string(), "wallet".to_string()];
         let result = state.sync_all(&categories).await;
         assert!(matches!(result, Err(Error::SignerNotSet)));
@@ -494,7 +503,7 @@ mod tests {
 
     #[tokio::test]
     async fn sync_all_with_empty_categories_returns_empty_vec() {
-        let state = NostrSyncState::new("testapp", "test-device").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
         let keys = nostr_sdk::Keys::generate();
         state.set_signer(keys).await.unwrap();
         // No relay connected — sync_all with empty slice returns Ok([]) immediately
@@ -504,7 +513,7 @@ mod tests {
 
     #[tokio::test]
     async fn signer_lifecycle_exposes_then_hides_pubkey() {
-        let state = NostrSyncState::new("testapp", "test-device").unwrap();
+        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
         let keys = nostr_sdk::Keys::generate();
         let expected = keys.public_key();
 
@@ -513,5 +522,28 @@ mod tests {
 
         state.clear_signer().await;
         assert!(state.pubkey().await.is_none());
+    }
+
+    #[test]
+    fn new_rejects_payload_limit_over_max() {
+        assert!(matches!(
+            NostrSyncState::new("testapp", "test-device", MAX_PAYLOAD_LIMIT + 1),
+            Err(Error::InvalidPayloadLimit { .. })
+        ));
+    }
+
+    #[test]
+    fn new_accepts_payload_limit_at_max() {
+        assert!(NostrSyncState::new("testapp", "test-device", MAX_PAYLOAD_LIMIT).is_ok());
+    }
+
+    #[test]
+    fn custom_limit_is_enforced() {
+        let limit = 100;
+        assert!(check_payload_size(&"x".repeat(limit), limit).is_ok());
+        assert!(matches!(
+            check_payload_size(&"x".repeat(limit + 1), limit),
+            Err(Error::PayloadTooLarge { .. })
+        ));
     }
 }

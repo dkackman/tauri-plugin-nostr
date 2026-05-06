@@ -24,7 +24,7 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
     #[cfg(not(any(target_os = "ios", target_os = "android")))]
     let _ = &api;
 
-    let state = Arc::new(NostrSyncState::new(namespace, device_id)?);
+    let state = Arc::new(NostrSyncState::new(namespace, device_id, crate::state::DEFAULT_PAYLOAD_LIMIT)?);
     let plugin = TauriPluginNostrSync {
         app: app.clone(),
         pub_state: state,

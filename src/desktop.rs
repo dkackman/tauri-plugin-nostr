@@ -10,7 +10,7 @@ pub fn init<R: Runtime>(
     namespace: &str,
     device_id: &str,
 ) -> crate::Result<TauriPluginNostrSync<R>> {
-    let state = Arc::new(NostrSyncState::new(namespace, device_id)?);
+    let state = Arc::new(NostrSyncState::new(namespace, device_id, crate::state::DEFAULT_PAYLOAD_LIMIT)?);
     let plugin = TauriPluginNostrSync {
         app: app.clone(),
         pub_state: state,
