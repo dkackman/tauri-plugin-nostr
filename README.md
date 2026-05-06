@@ -21,7 +21,7 @@ Add the Rust crate to your `src-tauri/Cargo.toml`:
 
 ```toml
 [dependencies]
-tauri-plugin-nostr-sync = "0.1"
+tauri-plugin-nostr-sync = "0.1.0-alpha.1"
 ```
 
 Add the JavaScript bindings:
@@ -177,4 +177,4 @@ let updates = sync.poll(&categories).await?;     // Vec<FetchResult> — only ne
 
 ## License
 
-MIT
+Apache License 2.0

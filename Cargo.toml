@@ -4,11 +4,18 @@ exclude = ["examples"]
 
 [package]
 name = "tauri-plugin-nostr-sync"
-version = "0.1.0"
-authors = ["You"]
+version = "0.1.0-alpha.1"
+authors = ["dkackman"]
 description = "Encrypted decentralized state sync via Nostr for Tauri apps"
 edition = "2021"
 rust-version = "1.77.2"
+license = "Apache-2.0"
+repository = "https://github.com/dkackman/tauri-plugin-nostr"
+homepage = "https://github.com/dkackman/tauri-plugin-nostr"
+documentation = "https://docs.rs/tauri-plugin-nostr-sync"
+readme = "README.md"
+keywords = ["nostr", "tauri", "sync", "plugin", "nip44"]
+categories = ["network-programming", "cryptography"]
 exclude = ["/examples", "/dist-js", "/guest-js", "/node_modules"]
 links = "tauri-plugin-nostr-sync"
 

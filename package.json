@@ -1,12 +1,33 @@
 {
   "name": "tauri-plugin-nostr-sync-api",
-  "version": "0.1.0",
-  "author": "You",
-  "description": "",
+  "version": "0.1.0-alpha.1",
+  "author": "dkackman",
+  "description": "A Tauri plugin for Nostr synchronization",
+  "keywords": [
+    "nostr",
+    "tauri",
+    "sync",
+    "plugin",
+    "nip44",
+    "encryption"
+  ],
   "type": "module",
   "types": "./dist-js/index.d.ts",
   "main": "./dist-js/index.cjs",
   "module": "./dist-js/index.js",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dkackman/tauri-plugin-nostr.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dkackman/tauri-plugin-nostr/issues"
+  },
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/dkackman/tauri-plugin-nostr",
+  "engines": {
+    "node": ">=18"
+  },
   "exports": {
     "types": "./dist-js/index.d.ts",
     "import": "./dist-js/index.js",
@@ -35,11 +56,12 @@
     "lint:all": "pnpm -r run lint && pnpm run lint",
     "lint:fix:all": "pnpm -r run lint:fix && pnpm run lint:fix"
   },
-  "dependencies": {
+  "peerDependencies": {
     "@tauri-apps/api": ">=2.11.0"
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^12.3.0",
+    "@tauri-apps/api": ">=2.11.0",
     "eslint": "^10.3.0",
     "eslint-plugin-svelte": "^3.17.1",
     "prettier": "^3.8.3",
