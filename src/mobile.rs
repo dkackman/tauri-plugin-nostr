@@ -14,6 +14,7 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
     relays: Vec<String>,
     namespace: &str,
     device_id: &str,
+    max_payload_size: usize,
 ) -> crate::Result<TauriPluginNostrSync<R>> {
     // Register the native no-op plugin to satisfy Tauri's mobile lifecycle.
     // The handle is intentionally dropped — all logic runs in Rust.
@@ -24,7 +25,7 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
     #[cfg(not(any(target_os = "ios", target_os = "android")))]
     let _ = &api;
 
-    let state = Arc::new(NostrSyncState::new(namespace, device_id, crate::state::DEFAULT_PAYLOAD_LIMIT)?);
+    let state = Arc::new(NostrSyncState::new(namespace, device_id, max_payload_size)?);
     let plugin = TauriPluginNostrSync {
         app: app.clone(),
         pub_state: state,

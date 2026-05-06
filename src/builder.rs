@@ -4,6 +4,7 @@ pub struct PluginBuilder {
     pub(crate) relays: Vec<String>,
     pub(crate) namespace: String,
     pub(crate) device_id: String,
+    pub(crate) max_payload_size: usize,
 }
 
 impl PluginBuilder {
@@ -12,6 +13,7 @@ impl PluginBuilder {
             relays: Vec::new(),
             namespace: "default".to_string(),
             device_id: uuid::Uuid::new_v4().to_string(),
+            max_payload_size: crate::state::DEFAULT_PAYLOAD_LIMIT,
         }
     }
 
@@ -36,6 +38,15 @@ impl PluginBuilder {
         self
     }
 
+    /// Override the maximum payload size in bytes. Defaults to 64KB. Must not exceed 400KB.
+    ///
+    /// Payloads exceeding this limit return `Error::PayloadTooLarge` from `publish`.
+    /// Values above 400KB surface as `Error::InvalidPayloadLimit` at plugin startup.
+    pub fn max_payload_size(mut self, bytes: usize) -> Self {
+        self.max_payload_size = bytes;
+        self
+    }
+
     pub fn build<R: Runtime>(self) -> TauriPlugin<R> {
         // Panic on invalid namespace — consistent with Tauri builder conventions.
         crate::state::validate_namespace(&self.namespace)
@@ -44,6 +55,7 @@ impl PluginBuilder {
         let relays = self.relays;
         let namespace = self.namespace;
         let device_id = self.device_id;
+        let max_payload_size = self.max_payload_size;
 
         tauri::plugin::Builder::<R>::new("nostr-sync")
             .invoke_handler(tauri::generate_handler![
@@ -60,13 +72,13 @@ impl PluginBuilder {
             .setup(move |app, api| {
                 #[cfg(mobile)]
                 {
-                    let plugin = crate::mobile::init(app, api, relays, &namespace, &device_id)?;
+                    let plugin = crate::mobile::init(app, api, relays, &namespace, &device_id, max_payload_size)?;
                     app.manage(plugin);
                 }
                 #[cfg(desktop)]
                 {
                     let _ = &api;
-                    let plugin = crate::desktop::init(app, relays, &namespace, &device_id)?;
+                    let plugin = crate::desktop::init(app, relays, &namespace, &device_id, max_payload_size)?;
                     app.manage(plugin);
                 }
                 Ok(())
@@ -121,5 +133,17 @@ mod tests {
     fn relays_stores_provided_urls() {
         let b = PluginBuilder::new().relays(vec!["wss://relay.damus.io", "wss://nos.lol"]);
         assert_eq!(b.relays, vec!["wss://relay.damus.io", "wss://nos.lol"]);
+    }
+
+    #[test]
+    fn max_payload_size_defaults_to_64kb() {
+        let b = PluginBuilder::new();
+        assert_eq!(b.max_payload_size, crate::state::DEFAULT_PAYLOAD_LIMIT);
+    }
+
+    #[test]
+    fn max_payload_size_setter_stores_value() {
+        let b = PluginBuilder::new().max_payload_size(128 * 1024);
+        assert_eq!(b.max_payload_size, 128 * 1024);
     }
 }
