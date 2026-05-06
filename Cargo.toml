@@ -4,7 +4,7 @@ exclude = ["examples"]
 
 [package]
 name = "tauri-plugin-nostr-sync"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 authors = ["dkackman"]
 description = "Encrypted decentralized state sync via Nostr for Tauri apps"
 edition = "2021"
