@@ -11,6 +11,7 @@ async fn two_instances_publish_and_poll() {
     // Instance A publishes
     let sender = NostrSyncState::new(
         "e2e-test",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )
@@ -27,6 +28,7 @@ async fn two_instances_publish_and_poll() {
     // Instance B polls (same keypair — same pubkey, can decrypt NIP-44)
     let receiver = NostrSyncState::new(
         "e2e-test",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )

@@ -13,6 +13,7 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
     api: PluginApi<R, C>,
     relays: Vec<String>,
     namespace: &str,
+    network: &str,
     device_id: &str,
     max_payload_size: usize,
 ) -> crate::Result<TauriPluginNostrSync<R>> {
@@ -25,7 +26,12 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
     #[cfg(not(any(target_os = "ios", target_os = "android")))]
     let _ = &api;
 
-    let state = Arc::new(NostrSyncState::new(namespace, device_id, max_payload_size)?);
+    let state = Arc::new(NostrSyncState::new(
+        namespace,
+        network,
+        device_id,
+        max_payload_size,
+    )?);
     let plugin = TauriPluginNostrSync {
         app: app.clone(),
         pub_state: state,

@@ -12,6 +12,7 @@ fn make_keys() -> nostr_sdk::Keys {
 async fn publish_without_signer_returns_signer_not_set() {
     let state = NostrSyncState::new(
         "testapp",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )
@@ -26,6 +27,7 @@ async fn publish_without_signer_returns_signer_not_set() {
 async fn fetch_without_signer_returns_signer_not_set() {
     let state = NostrSyncState::new(
         "testapp",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )
@@ -38,6 +40,7 @@ async fn fetch_without_signer_returns_signer_not_set() {
 async fn sync_all_without_signer_returns_signer_not_set() {
     let state = NostrSyncState::new(
         "testapp",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )
@@ -50,6 +53,7 @@ async fn sync_all_without_signer_returns_signer_not_set() {
 async fn payload_at_64kb_limit_accepted() {
     let state = NostrSyncState::new(
         "testapp",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )
@@ -68,6 +72,7 @@ async fn payload_at_64kb_limit_accepted() {
 async fn payload_over_64kb_limit_rejected() {
     let state = NostrSyncState::new(
         "testapp",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )
@@ -86,6 +91,7 @@ async fn fetch_returns_none_when_no_events_exist() {
     let relay = common::MockRelay::start().await;
     let state = NostrSyncState::new(
         "testapp",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )
@@ -106,6 +112,7 @@ async fn publish_then_fetch_returns_same_payload() {
     let relay = common::MockRelay::start().await;
     let state = NostrSyncState::new(
         "testapp",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )
@@ -128,6 +135,7 @@ async fn publish_then_fetch_returns_same_payload() {
 async fn publish_with_relay_down_returns_no_relays_accepted() {
     let state = NostrSyncState::new(
         "testapp",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )
@@ -149,6 +157,7 @@ async fn sync_all_returns_all_fetched_categories() {
     let relay = common::MockRelay::start().await;
     let state = NostrSyncState::new(
         "testapp",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )
@@ -179,6 +188,7 @@ async fn sequential_publishes_to_same_category_returns_latest() {
     let relay = common::MockRelay::start().await;
     let state = NostrSyncState::new(
         "testapp",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )
@@ -205,6 +215,7 @@ async fn sync_all_returns_correct_payloads_per_category() {
     let relay = common::MockRelay::start().await;
     let state = NostrSyncState::new(
         "testapp",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )
@@ -244,6 +255,7 @@ async fn sync_all_omits_categories_with_no_data() {
     let relay = common::MockRelay::start().await;
     let state = NostrSyncState::new(
         "testapp",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )
@@ -273,6 +285,7 @@ async fn sync_all_omits_categories_with_no_data() {
 async fn poll_without_signer_returns_signer_not_set() {
     let state = NostrSyncState::new(
         "testapp",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )
@@ -286,6 +299,7 @@ async fn poll_returns_empty_when_no_events() {
     let relay = common::MockRelay::start().await;
     let state = NostrSyncState::new(
         "testapp",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )
@@ -306,6 +320,7 @@ async fn poll_returns_update_on_first_call() {
     let relay = common::MockRelay::start().await;
     let state = NostrSyncState::new(
         "testapp",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )
@@ -331,6 +346,7 @@ async fn poll_deduplicates_unchanged_events() {
     let relay = common::MockRelay::start().await;
     let state = NostrSyncState::new(
         "testapp",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )
@@ -358,6 +374,7 @@ async fn poll_returns_update_after_republish() {
     let relay = common::MockRelay::start().await;
     let state = NostrSyncState::new(
         "testapp",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )
@@ -396,6 +413,7 @@ async fn poll_with_multiple_categories_returns_only_changed() {
     let relay = common::MockRelay::start().await;
     let state = NostrSyncState::new(
         "testapp",
+        "mainnet",
         "test-device",
         tauri_plugin_nostr_sync::DEFAULT_PAYLOAD_LIMIT,
     )

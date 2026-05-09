@@ -8,10 +8,16 @@ pub fn init<R: Runtime>(
     app: &AppHandle<R>,
     relays: Vec<String>,
     namespace: &str,
+    network: &str,
     device_id: &str,
     max_payload_size: usize,
 ) -> crate::Result<TauriPluginNostrSync<R>> {
-    let state = Arc::new(NostrSyncState::new(namespace, device_id, max_payload_size)?);
+    let state = Arc::new(NostrSyncState::new(
+        namespace,
+        network,
+        device_id,
+        max_payload_size,
+    )?);
     let plugin = TauriPluginNostrSync {
         app: app.clone(),
         pub_state: state,

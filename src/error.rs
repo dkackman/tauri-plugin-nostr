@@ -31,6 +31,9 @@ pub enum Error {
     #[error("invalid category '{0}': must be non-empty and contain no '/' characters")]
     InvalidCategory(String),
 
+    #[error("invalid network '{0}': must be non-empty and contain no '/' characters")]
+    InvalidNetwork(String),
+
     #[error("no relays accepted the event")]
     NoRelaysAccepted,
 

@@ -3,6 +3,7 @@ use tauri::{plugin::TauriPlugin, Manager, Runtime};
 pub struct PluginBuilder {
     pub(crate) relays: Vec<String>,
     pub(crate) namespace: String,
+    pub(crate) network: String,
     pub(crate) device_id: String,
     pub(crate) max_payload_size: usize,
 }
@@ -12,6 +13,7 @@ impl PluginBuilder {
         Self {
             relays: Vec::new(),
             namespace: "default".to_string(),
+            network: "mainnet".to_string(),
             device_id: uuid::Uuid::new_v4().to_string(),
             max_payload_size: crate::state::DEFAULT_PAYLOAD_LIMIT,
         }
@@ -24,6 +26,11 @@ impl PluginBuilder {
 
     pub fn app_namespace(mut self, ns: impl Into<String>) -> Self {
         self.namespace = ns.into();
+        self
+    }
+
+    pub fn network(mut self, network: impl Into<String>) -> Self {
+        self.network = network.into();
         self
     }
 
@@ -54,6 +61,7 @@ impl PluginBuilder {
 
         let relays = self.relays;
         let namespace = self.namespace;
+        let network = self.network;
         let device_id = self.device_id;
         let max_payload_size = self.max_payload_size;
 
@@ -77,6 +85,7 @@ impl PluginBuilder {
                         api,
                         relays,
                         &namespace,
+                        &network,
                         &device_id,
                         max_payload_size,
                     )?;
@@ -89,6 +98,7 @@ impl PluginBuilder {
                         app,
                         relays,
                         &namespace,
+                        &network,
                         &device_id,
                         max_payload_size,
                     )?;

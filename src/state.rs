@@ -13,6 +13,7 @@ pub const MAX_PAYLOAD_LIMIT: usize = 400 * 1024; // 400KB hard cap
 
 pub struct NostrSyncState {
     pub(crate) namespace: String,
+    pub(crate) network: String,
     pub(crate) device_id: String,
     pub(crate) client: Client,
     max_payload_size: usize,
@@ -20,8 +21,14 @@ pub struct NostrSyncState {
 }
 
 impl NostrSyncState {
-    pub fn new(namespace: &str, device_id: &str, max_payload_size: usize) -> Result<Self> {
+    pub fn new(
+        namespace: &str,
+        network: &str,
+        device_id: &str,
+        max_payload_size: usize,
+    ) -> Result<Self> {
         validate_namespace(namespace)?;
+        validate_network(network)?;
         if max_payload_size > MAX_PAYLOAD_LIMIT {
             return Err(Error::InvalidPayloadLimit {
                 requested: max_payload_size,
@@ -32,6 +39,7 @@ impl NostrSyncState {
         let client = Client::builder().opts(opts).build();
         Ok(Self {
             namespace: namespace.to_string(),
+            network: network.to_string(),
             device_id: device_id.to_string(),
             client,
             max_payload_size,
@@ -112,7 +120,7 @@ impl NostrSyncState {
             .map_err(|_| Error::SignerNotSet)?;
 
         let ciphertext = encrypt_payload(&signer, payload, self.max_payload_size).await?;
-        let dtag = build_dtag(&self.namespace, category);
+        let dtag = build_dtag(&self.namespace, &self.network, category);
         let kind = Kind::from(30078u16);
 
         let pubkey = signer
@@ -158,7 +166,7 @@ impl NostrSyncState {
             .await
             .map_err(|e| Error::DecryptionFailed(e.to_string()))?;
 
-        let filter = build_filter(pubkey, &self.namespace, category);
+        let filter = build_filter(pubkey, &self.namespace, &self.network, category);
 
         let events = self
             .client
@@ -221,7 +229,7 @@ impl NostrSyncState {
 
         for category in categories {
             validate_category(category)?;
-            let filter = build_filter(pubkey, &self.namespace, category);
+            let filter = build_filter(pubkey, &self.namespace, &self.network, category);
             let events = self
                 .client
                 .fetch_events(filter, Duration::from_secs(10))
@@ -314,22 +322,29 @@ async fn decrypt_payload(
     serde_json::from_str(&json).map_err(|e| Error::DecryptionFailed(e.to_string()))
 }
 
-/// Constructs the NIP-78 d-tag value: `{namespace}/{category}/v1`
-pub(crate) fn build_dtag(namespace: &str, category: &str) -> String {
-    format!("{}/{}/v1", namespace, category)
+/// Constructs the NIP-78 d-tag value: `{namespace}/{network}/{category}/v1`
+pub(crate) fn build_dtag(namespace: &str, network: &str, category: &str) -> String {
+    format!("{}/{}/{}/v1", namespace, network, category)
 }
 
-fn build_filter(pubkey: PublicKey, namespace: &str, category: &str) -> Filter {
+fn build_filter(pubkey: PublicKey, namespace: &str, network: &str, category: &str) -> Filter {
     Filter::new()
         .kind(Kind::from(30078u16))
         .author(pubkey)
-        .identifier(build_dtag(namespace, category))
+        .identifier(build_dtag(namespace, network, category))
 }
 
 /// Validates that a namespace is non-empty and contains no '/' characters.
 pub(crate) fn validate_namespace(namespace: &str) -> Result<()> {
     if namespace.is_empty() || namespace.contains('/') {
         return Err(Error::InvalidNamespace(namespace.to_string()));
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_network(network: &str) -> Result<()> {
+    if network.is_empty() || network.contains('/') {
+        return Err(Error::InvalidNetwork(network.to_string()));
     }
     Ok(())
 }
@@ -350,7 +365,10 @@ mod tests {
 
     #[test]
     fn dtag_format_includes_namespace_category_and_version() {
-        assert_eq!(build_dtag("sage", "ui-settings"), "sage/ui-settings/v1");
+        assert_eq!(
+            build_dtag("sage", "mainnet", "ui-settings"),
+            "sage/mainnet/ui-settings/v1"
+        );
     }
 
     #[test]
@@ -378,7 +396,8 @@ mod tests {
 
     #[tokio::test]
     async fn sync_status_not_ready_without_signer() {
-        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
+        let state = NostrSyncState::new("testapp", "mainnet", "test-device", DEFAULT_PAYLOAD_LIMIT)
+            .unwrap();
         let status = state.status().await;
         assert!(!status.ready);
     }
@@ -413,11 +432,11 @@ mod tests {
     #[test]
     fn new_rejects_invalid_namespace() {
         assert!(matches!(
-            NostrSyncState::new("", "test-device", DEFAULT_PAYLOAD_LIMIT),
+            NostrSyncState::new("", "mainnet", "test-device", DEFAULT_PAYLOAD_LIMIT),
             Err(Error::InvalidNamespace(_))
         ));
         assert!(matches!(
-            NostrSyncState::new("a/b", "test-device", DEFAULT_PAYLOAD_LIMIT),
+            NostrSyncState::new("a/b", "mainnet", "test-device", DEFAULT_PAYLOAD_LIMIT),
             Err(Error::InvalidNamespace(_))
         ));
     }
@@ -446,7 +465,8 @@ mod tests {
 
     #[tokio::test]
     async fn publish_with_slash_category_returns_invalid_category() {
-        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
+        let state = NostrSyncState::new("testapp", "mainnet", "test-device", DEFAULT_PAYLOAD_LIMIT)
+            .unwrap();
         state.set_signer(nostr_sdk::Keys::generate()).await.unwrap();
         let result = state
             .publish("ui/settings", &serde_json::json!({"x": 1}), None)
@@ -456,7 +476,8 @@ mod tests {
 
     #[tokio::test]
     async fn fetch_with_slash_category_returns_invalid_category() {
-        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
+        let state = NostrSyncState::new("testapp", "mainnet", "test-device", DEFAULT_PAYLOAD_LIMIT)
+            .unwrap();
         state.set_signer(nostr_sdk::Keys::generate()).await.unwrap();
         let result = state.fetch("ui/settings").await;
         assert!(matches!(result, Err(Error::InvalidCategory(_))));
@@ -464,7 +485,8 @@ mod tests {
 
     #[tokio::test]
     async fn clear_signer_prevents_publish() {
-        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
+        let state = NostrSyncState::new("testapp", "mainnet", "test-device", DEFAULT_PAYLOAD_LIMIT)
+            .unwrap();
         state.set_signer(nostr_sdk::Keys::generate()).await.unwrap();
         state.clear_signer().await;
         let result = state
@@ -475,7 +497,8 @@ mod tests {
 
     #[tokio::test]
     async fn publish_without_signer_returns_signer_not_set() {
-        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
+        let state = NostrSyncState::new("testapp", "mainnet", "test-device", DEFAULT_PAYLOAD_LIMIT)
+            .unwrap();
         let result = state
             .publish("ui-settings", &serde_json::json!({ "theme": "dark" }), None)
             .await;
@@ -484,20 +507,23 @@ mod tests {
 
     #[tokio::test]
     async fn fetch_without_signer_returns_signer_not_set() {
-        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
+        let state = NostrSyncState::new("testapp", "mainnet", "test-device", DEFAULT_PAYLOAD_LIMIT)
+            .unwrap();
         let result = state.fetch("ui-settings").await;
         assert!(matches!(result, Err(Error::SignerNotSet)));
     }
 
     #[tokio::test]
     async fn pubkey_is_none_without_signer() {
-        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
+        let state = NostrSyncState::new("testapp", "mainnet", "test-device", DEFAULT_PAYLOAD_LIMIT)
+            .unwrap();
         assert!(state.pubkey().await.is_none());
     }
 
     #[tokio::test]
     async fn sync_all_without_signer_returns_signer_not_set() {
-        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
+        let state = NostrSyncState::new("testapp", "mainnet", "test-device", DEFAULT_PAYLOAD_LIMIT)
+            .unwrap();
         let categories = vec!["ui-settings".to_string(), "wallet".to_string()];
         let result = state.sync_all(&categories).await;
         assert!(matches!(result, Err(Error::SignerNotSet)));
@@ -505,7 +531,8 @@ mod tests {
 
     #[tokio::test]
     async fn sync_all_with_empty_categories_returns_empty_vec() {
-        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
+        let state = NostrSyncState::new("testapp", "mainnet", "test-device", DEFAULT_PAYLOAD_LIMIT)
+            .unwrap();
         let keys = nostr_sdk::Keys::generate();
         state.set_signer(keys).await.unwrap();
         // No relay connected — sync_all with empty slice returns Ok([]) immediately
@@ -515,7 +542,8 @@ mod tests {
 
     #[tokio::test]
     async fn signer_lifecycle_exposes_then_hides_pubkey() {
-        let state = NostrSyncState::new("testapp", "test-device", DEFAULT_PAYLOAD_LIMIT).unwrap();
+        let state = NostrSyncState::new("testapp", "mainnet", "test-device", DEFAULT_PAYLOAD_LIMIT)
+            .unwrap();
         let keys = nostr_sdk::Keys::generate();
         let expected = keys.public_key();
 
@@ -529,14 +557,16 @@ mod tests {
     #[test]
     fn new_rejects_payload_limit_over_max() {
         assert!(matches!(
-            NostrSyncState::new("testapp", "test-device", MAX_PAYLOAD_LIMIT + 1),
+            NostrSyncState::new("testapp", "mainnet", "test-device", MAX_PAYLOAD_LIMIT + 1),
             Err(Error::InvalidPayloadLimit { .. })
         ));
     }
 
     #[test]
     fn new_accepts_payload_limit_at_max() {
-        assert!(NostrSyncState::new("testapp", "test-device", MAX_PAYLOAD_LIMIT).is_ok());
+        assert!(
+            NostrSyncState::new("testapp", "mainnet", "test-device", MAX_PAYLOAD_LIMIT).is_ok()
+        );
     }
 
     #[test]
